@@ -16,10 +16,10 @@
 .
 ├── data/                  # 数据抓取与生成脚本
 │   ├── gather_dlt.py      # 抓取体彩官网历史开奖 -> dlt_history.csv(.xlsx)
-│   ├── gen_data.py        # CSV -> ../dlt-web/data.js（网站加载的数据）
+│   ├── gen_data.py        # CSV -> ../docs/data.js（网站加载的数据）
 │   ├── update_data.py     # 一键更新：抓取 + 生成
 │   └── update.bat         # Windows 双击更新
-└── dlt-web/               # 网站（静态）
+└── docs/               # 网站（静态）
     ├── index.html
     ├── app.js
     ├── data.js            # ★ 网站实际加载的数据（window.DLT_DATA）
@@ -31,18 +31,18 @@
 ## 本地运行
 
 方式一（推荐，打开即更新数据）：
-> 双击 `dlt-web/启动网站.bat`，自动起服务并打开 `http://localhost:8000`。
+> 双击 `docs/启动网站.bat`，自动起服务并打开 `http://localhost:8000`。
 > 打开网页时后端会自动检查/拉取最新开奖数据（无新期则秒回）。
 
 方式二（手动起服务）：
 ```bash
-cd dlt-web
+cd docs
 python serve.py
 # 浏览器访问 http://localhost:8000
 ```
 
 方式三（纯静态，不自动更新）：
-直接双击 `dlt-web/index.html` 用浏览器打开，使用的是当前 `data.js` 已有数据。
+直接双击 `docs/index.html` 用浏览器打开，使用的是当前 `data.js` 已有数据。
 
 ## 更新数据
 
@@ -55,7 +55,7 @@ python update_data.py      # = gather_dlt.py + gen_data.py
 
 ## 部署到公网
 
-> 本项目是纯静态站点（无后端数据库），只需把 `dlt-web/` 下的前端文件发布出去即可。
+> 本项目是纯静态站点（无后端数据库），只需把 `docs/` 下的前端文件发布出去即可。
 > 部署后「打开即更新」功能不可用（那依赖本地后端），数据更新改用下面的「自动更新」方案。
 
 ### 方式一：GitHub Pages（推荐，免服务器 + 自动更新）
@@ -63,13 +63,13 @@ python update_data.py      # = gather_dlt.py + gen_data.py
 **第 1 步：开启 Pages（只做一次）**
 1. 打开仓库 https://github.com/crfmoon/lottery → **Settings** → 左侧 **Pages**。
 2. **Build and deployment → Source** 选 **Deploy from a branch**。
-3. **Branch** 选 `main`，**目录** 选 `/dlt-web`，点 **Save**。
+3. **Branch** 选 `main`，**目录** 选 `/docs`，点 **Save**。
 4. 稍等一两分钟，页面顶部会出现 `https://crfmoon.github.io/lottery/` 的访问地址，点开即见网站。
 
 **第 2 步：数据自动更新（已配置，免维护）**
 仓库里的 `.github/workflows/update.yml` 会在 **每周一/三/六 北京时间约 22:00** 自动：
-- 连体彩官网抓最新开奖 → 生成 `dlt-web/data.js` → 提交回 `main` 分支；
-- 因 Pages 是从 `main` 分支的 `/dlt-web` 发布，提交后网站**自动重新发布**，访客看到的永远是最新数据。
+- 连体彩官网抓最新开奖 → 生成 `docs/data.js` → 提交回 `main` 分支；
+- 因 Pages 是从 `main` 分支的 `/docs` 发布，提交后网站**自动重新发布**，访客看到的永远是最新数据。
 
 你完全不用手动干预。若想立刻更新（比如开奖当晚），可到仓库 **Actions** 页手动 **Run workflow**。
 
@@ -81,15 +81,15 @@ python update_data.py      # = gather_dlt.py + gen_data.py
 
 ### 方式二：Vercel（最省心，部署体验好）
 1. 打开 [vercel.com](https://vercel.com)，用 GitHub 登录并 **Import** 本仓库。
-2. 本仓库已含 `vercel.json`（输出目录 `dlt-web`），无需额外配置，直接 **Deploy**。
+2. 本仓库已含 `vercel.json`（输出目录 `docs`），无需额外配置，直接 **Deploy**。
 3. 部署后给一个 `xxx.vercel.app` 域名；之后本地更新数据 `git push` 即自动重新部署。
    （Vercel 无内置定时抓取，数据更新靠你本地 push，或用上面的 GitHub Actions 推送触发。）
 
 ### 方式三：Nginx / 对象存储 + CDN（需自有服务器）
-把 `dlt-web/` 整目录作为静态根发布即可，更新方式同「本地更新后重新同步」。
+把 `docs/` 整目录作为静态根发布即可，更新方式同「本地更新后重新同步」。
 
 ### 带后端（VPS，对外提供服务）
-若想保留「打开网页即更新」体验并对外提供，可在云服务器用 Gunicorn + Nginx 托管 `dlt-web/serve.py`，
+若想保留「打开网页即更新」体验并对外提供，可在云服务器用 Gunicorn + Nginx 托管 `docs/serve.py`，
 并把「打开即更新」改为服务端定时更新 + 限流 + HTTPS，避免每个访客都触发抓取。
 
 ## 合规声明

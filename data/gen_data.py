@@ -9,7 +9,7 @@ from datetime import datetime
 HERE = os.path.dirname(os.path.abspath(__file__))   # 本文件所在目录（data/）
 base = os.path.dirname(HERE)                          # 项目根（data 的上一级）
 data_dir = HERE
-web_dir = os.path.join(base, "dlt-web")
+web_dir = os.path.join(base, "docs")
 os.makedirs(web_dir, exist_ok=True)
 
 rows = []

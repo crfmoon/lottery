@@ -1,6 +1,6 @@
 {
   "buildCommand": null,
-  "outputDirectory": "dlt-web",
+  "outputDirectory": "docs",
   "framework": null,
   "cleanUrls": false
 }
