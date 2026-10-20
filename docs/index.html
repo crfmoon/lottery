@@ -93,6 +93,10 @@
         <span id="trendPageInfo" style="margin:0 10px;font-size:13px"></span>
         <button class="pgbtn" onclick="pageMove(1)">下一页 ▶</button>
       </span>
+      <span style="margin-left:16px">连线：
+        <button data-line="trend" class="active" onclick="toggleTrend()">同号走势</button>
+        <button data-line="pattern" class="active" onclick="togglePattern()">规律高亮</button>
+      </span>
     </div>
     <div id="trendTableView"><div style="overflow-x:auto">
       <table id="trendTable" class="tt"></table>
@@ -100,7 +104,7 @@
     <div id="trendLineView" style="display:none">
       <div id="trendChart" class="chart"></div>
     </div>
-    <p class="hint">遗漏表：红球=该期开出，灰字=遗漏期数；走势线：每期前区5码按大小排序为 5 条轨迹曲线（后区 2 条），看号码高低波动。每组 30 期，最新在最下。<br>连线图例：彩色竖线=各号走势；<b style="color:#f4a261">橙粗段</b>=重号(相邻两期同号)；<b style="color:#2a9d8f">青横线</b>=连号(同期内相邻号)；<b style="color:#9b5de5">紫虚线</b>=斜连(相邻两期号码±1)。</p>
+    <p class="hint">遗漏表：红球=该期开出，灰字=遗漏期数；走势线：每期前区5码按大小排序为 5 条轨迹曲线（后区 2 条），看号码高低波动。每组 30 期，最新在最下。<br>连线（可点上方开关关闭）：彩色淡竖线=各号走势；<b style="color:#f4a261">橙粗段</b>=重号(相邻两期同号)；<b style="color:#2a9d8f">青横线</b>=连号(同期内相邻号)；<b style="color:#9b5de5">紫斜线</b>=斜连(连续≥3期、每期号码±1 的同向斜线)。</p>
   </section>
 
   <section id="sum">

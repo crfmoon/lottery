@@ -147,6 +147,8 @@ function renderOverview() {
 const GROUP = 30;
 let curPage = -1; // -1 = 定位到最新一页
 let curView = "table"; // table | line
+let showTrend = true;   // 同号纵向走势线
+let showPattern = true; // 重号/连号/斜连 高亮
 const missCache = { front: null, back: null };
 
 function ensureMiss(zone) {
@@ -213,19 +215,17 @@ function renderTrend() {
   document.getElementById("trendPageInfo").textContent =
     `第 ${curPage + 1}/${total} 页 · ${DATA[start].issue} – ${DATA[end - 1].issue}`;
 }
-// 在遗漏表上叠加连线：
-// 1) 同号竖向走势线（按号码着色）；
-// 2) 连号：同期内相邻号码用青色横线相连；
-// 3) 重号：相邻两期同一号码用橙色粗段相连；
-// 4) 斜连：相邻两期号码相差 1 用紫色虚线相连。
+// 在遗漏表上叠加连线（受 showTrend / showPattern 开关控制）：
+// 同号竖向走势线、连号(同期相邻号)、重号(邻期同号)、斜连(连续>=3期相邻号同向)
 function drawTrendLines(tbl, N) {
   const scroller = tbl.parentElement;
   scroller.style.position = "relative";
   scroller.querySelectorAll(".nt-svg").forEach(s => s.remove());
+  if (!showTrend && !showPattern) return;
   const trs = Array.from(tbl.querySelectorAll("tbody tr"));
   const rows = trs.length;
   const colHits = {};            // m -> [{r,x,y}] 该号码在本页各命中位置
-  const hitPos = [];             // 每行 -> [{m,x,y}]
+  const hitPos = [];             // 每行 -> [{m,x,y,r}]
   for (let m = 1; m <= N; m++) colHits[m] = [];
   trs.forEach((tr, r) => {
     const list = [];
@@ -234,7 +234,7 @@ function drawTrendLines(tbl, N) {
       if (td && td.classList.contains("hitc")) {
         const x = td.offsetLeft + td.offsetWidth / 2;
         const y = td.offsetTop + td.offsetHeight / 2;
-        list.push({ m, x, y });
+        list.push({ m, x, y, r });
         colHits[m].push({ r, x, y });
       }
     }
@@ -243,50 +243,65 @@ function drawTrendLines(tbl, N) {
 
   let svg = `<svg class="nt-svg" width="${tbl.offsetWidth}" height="${tbl.offsetHeight}">`;
 
-  // A: 同号竖向走势线（按号着色，便于识别回补间隔）
-  for (let m = 1; m <= N; m++) {
-    const pts = colHits[m];
-    if (pts.length > 1) {
-      const color = `hsl(${Math.round((m - 1) / N * 320)}, 70%, 50%)`;
-      svg += `<polyline points="${pts.map(p => p.x.toFixed(1) + "," + p.y.toFixed(1)).join(" ")}" fill="none" stroke="${color}" stroke-width="1.6" opacity="0.55"/>`;
+  // 同号竖向走势线（按号着色，弱显，作底图）
+  if (showTrend) {
+    for (let m = 1; m <= N; m++) {
+      const pts = colHits[m];
+      if (pts.length > 1) {
+        const color = `hsl(${Math.round((m - 1) / N * 320)}, 70%, 50%)`;
+        svg += `<polyline points="${pts.map(p => p.x.toFixed(1) + "," + p.y.toFixed(1)).join(" ")}" fill="none" stroke="${color}" stroke-width="1.2" opacity="0.3"/>`;
+      }
     }
   }
 
-  // C: 连号（同期内相邻号码）-> 青色横线
-  hitPos.forEach(row => {
-    for (let i = 0; i < row.length; i++) {
-      for (let j = i + 1; j < row.length; j++) {
-        if (row[j].m - row[i].m === 1) {
-          svg += `<line x1="${row[i].x.toFixed(1)}" y1="${row[i].y.toFixed(1)}" x2="${row[j].x.toFixed(1)}" y2="${row[j].y.toFixed(1)}" stroke="#2a9d8f" stroke-width="2.4" opacity="0.8"/>`;
+  if (showPattern) {
+    // 连号（同期内相邻号码）-> 青色横线
+    hitPos.forEach(row => {
+      for (let i = 0; i < row.length; i++) {
+        for (let j = i + 1; j < row.length; j++) {
+          if (row[j].m - row[i].m === 1) {
+            svg += `<line x1="${row[i].x.toFixed(1)}" y1="${row[i].y.toFixed(1)}" x2="${row[j].x.toFixed(1)}" y2="${row[j].y.toFixed(1)}" stroke="#2a9d8f" stroke-width="2.4" opacity="0.85"/>`;
+          }
         }
-      }
-    }
-  });
-
-  // C: 重号（相邻两期同号）-> 橙色粗段
-  for (let r = 0; r < rows - 1; r++) {
-    const setB = new Set(hitPos[r + 1].map(p => p.m));
-    hitPos[r].forEach(p => {
-      if (setB.has(p.m)) {
-        const q = hitPos[r + 1].find(z => z.m === p.m);
-        svg += `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${q.x.toFixed(1)}" y2="${q.y.toFixed(1)}" stroke="#f4a261" stroke-width="3" opacity="0.9"/>`;
       }
     });
-  }
 
-  // C: 斜连（相邻两期号码相差 1）-> 紫色虚线
-  for (let r = 0; r < rows - 1; r++) {
-    hitPos[r].forEach(p => {
-      hitPos[r + 1].forEach(q => {
-        if (Math.abs(q.m - p.m) === 1) {
-          svg += `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${q.x.toFixed(1)}" y2="${q.y.toFixed(1)}" stroke="#9b5de5" stroke-width="1.4" opacity="0.5" stroke-dasharray="3 3"/>`;
+    // 重号（相邻两期同号）-> 橙色粗段
+    for (let r = 0; r < rows - 1; r++) {
+      const setB = new Set(hitPos[r + 1].map(p => p.m));
+      hitPos[r].forEach(p => {
+        if (setB.has(p.m)) {
+          const q = hitPos[r + 1].find(z => z.m === p.m);
+          svg += `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${q.x.toFixed(1)}" y2="${q.y.toFixed(1)}" stroke="#f4a261" stroke-width="3" opacity="0.92"/>`;
         }
       });
+    }
+
+    // 斜连：连续 >=3 期、每期号码 ±1 的同向斜线（按 m-r / m+r 分组共线，再按连续期号拆段）
+    const groups = {};
+    hitPos.forEach(row => row.forEach(p => {
+      (groups["R" + (p.m - p.r)] = groups["R" + (p.m - p.r)] || []).push(p);
+      (groups["L" + (p.m + p.r)] = groups["L" + (p.m + p.r)] || []).push(p);
+    }));
+    Object.values(groups).forEach(arr => {
+      if (arr.length < 3) return;
+      arr.sort((a, b) => a.r - b.r);
+      let seg = [arr[0]];
+      for (let i = 1; i < arr.length; i++) {
+        if (arr[i].r === arr[i - 1].r + 1) seg.push(arr[i]);
+        else { if (seg.length >= 3) svg += polyFrom(seg); seg = [arr[i]]; }
+      }
+      if (seg.length >= 3) svg += polyFrom(seg);
     });
   }
 
   svg += "</svg>";
   scroller.insertAdjacentHTML("beforeend", svg);
+}
+
+// 生成一条斜连折线
+function polyFrom(seg) {
+  return `<polyline points="${seg.map(p => p.x.toFixed(1) + "," + p.y.toFixed(1)).join(" ")}" fill="none" stroke="#9b5de5" stroke-width="2" opacity="0.75"/>`;
 }
 
 function pageMove(d) {
@@ -346,6 +361,20 @@ function setView(v) {
     b.classList.toggle("active", b.dataset.view === v));
   document.getElementById("trendTableView").style.display = v === "table" ? "block" : "none";
   document.getElementById("trendLineView").style.display = v === "line" ? "block" : "none";
+  renderTrend();
+}
+
+function toggleTrend() {
+  showTrend = !showTrend;
+  document.querySelectorAll('[data-line="trend"]').forEach(b =>
+    b.classList.toggle("active", showTrend));
+  renderTrend();
+}
+
+function togglePattern() {
+  showPattern = !showPattern;
+  document.querySelectorAll('[data-line="pattern"]').forEach(b =>
+    b.classList.toggle("active", showPattern));
   renderTrend();
 }
 
