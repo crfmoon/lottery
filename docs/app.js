@@ -213,26 +213,78 @@ function renderTrend() {
   document.getElementById("trendPageInfo").textContent =
     `第 ${curPage + 1}/${total} 页 · ${DATA[start].issue} – ${DATA[end - 1].issue}`;
 }
-// 在遗漏表上叠加连线：每个号码列把"开出红球"的出现点沿纵向串起来，
-// 两点间的空白行数即该号码的遗漏间隔
+// 在遗漏表上叠加连线：
+// 1) 同号竖向走势线（按号码着色）；
+// 2) 连号：同期内相邻号码用青色横线相连；
+// 3) 重号：相邻两期同一号码用橙色粗段相连；
+// 4) 斜连：相邻两期号码相差 1 用紫色虚线相连。
 function drawTrendLines(tbl, N) {
   const scroller = tbl.parentElement;
   scroller.style.position = "relative";
   scroller.querySelectorAll(".nt-svg").forEach(s => s.remove());
-  const trs = tbl.querySelectorAll("tbody tr");
-  let svg = `<svg class="nt-svg" width="${tbl.offsetWidth}" height="${tbl.offsetHeight}">`;
-  for (let m = 1; m <= N; m++) {
-    const pts = [];
-    trs.forEach(tr => {
+  const trs = Array.from(tbl.querySelectorAll("tbody tr"));
+  const rows = trs.length;
+  const colHits = {};            // m -> [{r,x,y}] 该号码在本页各命中位置
+  const hitPos = [];             // 每行 -> [{m,x,y}]
+  for (let m = 1; m <= N; m++) colHits[m] = [];
+  trs.forEach((tr, r) => {
+    const list = [];
+    for (let m = 1; m <= N; m++) {
       const td = tr.children[m];
       if (td && td.classList.contains("hitc")) {
-        pts.push([td.offsetLeft + td.offsetWidth / 2, td.offsetTop + td.offsetHeight / 2]);
+        const x = td.offsetLeft + td.offsetWidth / 2;
+        const y = td.offsetTop + td.offsetHeight / 2;
+        list.push({ m, x, y });
+        colHits[m].push({ r, x, y });
       }
-    });
+    }
+    hitPos.push(list);
+  });
+
+  let svg = `<svg class="nt-svg" width="${tbl.offsetWidth}" height="${tbl.offsetHeight}">`;
+
+  // A: 同号竖向走势线（按号着色，便于识别回补间隔）
+  for (let m = 1; m <= N; m++) {
+    const pts = colHits[m];
     if (pts.length > 1) {
-      svg += `<polyline points="${pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ")}" fill="none" stroke="#b8bfcc" stroke-width="1" opacity="0.5"/>`;
+      const color = `hsl(${Math.round((m - 1) / N * 320)}, 70%, 50%)`;
+      svg += `<polyline points="${pts.map(p => p.x.toFixed(1) + "," + p.y.toFixed(1)).join(" ")}" fill="none" stroke="${color}" stroke-width="1.6" opacity="0.55"/>`;
     }
   }
+
+  // C: 连号（同期内相邻号码）-> 青色横线
+  hitPos.forEach(row => {
+    for (let i = 0; i < row.length; i++) {
+      for (let j = i + 1; j < row.length; j++) {
+        if (row[j].m - row[i].m === 1) {
+          svg += `<line x1="${row[i].x.toFixed(1)}" y1="${row[i].y.toFixed(1)}" x2="${row[j].x.toFixed(1)}" y2="${row[j].y.toFixed(1)}" stroke="#2a9d8f" stroke-width="2.4" opacity="0.8"/>`;
+        }
+      }
+    }
+  });
+
+  // C: 重号（相邻两期同号）-> 橙色粗段
+  for (let r = 0; r < rows - 1; r++) {
+    const setB = new Set(hitPos[r + 1].map(p => p.m));
+    hitPos[r].forEach(p => {
+      if (setB.has(p.m)) {
+        const q = hitPos[r + 1].find(z => z.m === p.m);
+        svg += `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${q.x.toFixed(1)}" y2="${q.y.toFixed(1)}" stroke="#f4a261" stroke-width="3" opacity="0.9"/>`;
+      }
+    });
+  }
+
+  // C: 斜连（相邻两期号码相差 1）-> 紫色虚线
+  for (let r = 0; r < rows - 1; r++) {
+    hitPos[r].forEach(p => {
+      hitPos[r + 1].forEach(q => {
+        if (Math.abs(q.m - p.m) === 1) {
+          svg += `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${q.x.toFixed(1)}" y2="${q.y.toFixed(1)}" stroke="#9b5de5" stroke-width="1.4" opacity="0.5" stroke-dasharray="3 3"/>`;
+        }
+      });
+    });
+  }
+
   svg += "</svg>";
   scroller.insertAdjacentHTML("beforeend", svg);
 }
