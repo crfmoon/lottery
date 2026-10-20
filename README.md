@@ -55,17 +55,42 @@ python update_data.py      # = gather_dlt.py + gen_data.py
 
 ## 部署到公网
 
-### 纯静态（GitHub Pages / Vercel / Nginx 等）
-只需部署 `dlt-web/` 下的 4 个前端文件（`index.html`、`app.js`、`data.js`、`echarts.min.js`）。
-部署后「打开即更新」功能不可用（无后端），需重新生成 `data.js` 再发布。
+> 本项目是纯静态站点（无后端数据库），只需把 `dlt-web/` 下的前端文件发布出去即可。
+> 部署后「打开即更新」功能不可用（那依赖本地后端），数据更新改用下面的「自动更新」方案。
 
-- **Vercel**：导入仓库，本仓库已含 `vercel.json`（输出目录 `dlt-web`），直接 Deploy。
-- **GitHub Pages + 自动更新**：开启 Pages（Source 选 `main` 分支、目录 `/dlt-web`）；本仓库已含
-  `.github/workflows/update.yml`，会在每周一/三/六自动抓取数据并提交，Pages 随之自动更新，**完全免服务器**。
-  （注：抓取脚本从 GitHub 境外 runner 访问国内体彩接口可能偏慢，若失败可改为本地跑 `update_data.py` 后 push。）
+### 方式一：GitHub Pages（推荐，免服务器 + 自动更新）
 
-### 带后端（VPS）
-在云服务器用 Gunicorn + Nginx 托管 `serve.py`，并把「打开即更新」改为服务端定时更新 + 限流 + HTTPS，适合对外提供服务。
+**第 1 步：开启 Pages（只做一次）**
+1. 打开仓库 https://github.com/crfmoon/lottery → **Settings** → 左侧 **Pages**。
+2. **Build and deployment → Source** 选 **Deploy from a branch**。
+3. **Branch** 选 `main`，**目录** 选 `/dlt-web`，点 **Save**。
+4. 稍等一两分钟，页面顶部会出现 `https://crfmoon.github.io/lottery/` 的访问地址，点开即见网站。
+
+**第 2 步：数据自动更新（已配置，免维护）**
+仓库里的 `.github/workflows/update.yml` 会在 **每周一/三/六 北京时间约 22:00** 自动：
+- 连体彩官网抓最新开奖 → 生成 `dlt-web/data.js` → 提交回 `main` 分支；
+- 因 Pages 是从 `main` 分支的 `/dlt-web` 发布，提交后网站**自动重新发布**，访客看到的永远是最新数据。
+
+你完全不用手动干预。若想立刻更新（比如开奖当晚），可到仓库 **Actions** 页手动 **Run workflow**。
+
+> 注意：GitHub 的境外 runner 访问国内体彩接口偶尔会偏慢/失败。若某次自动更新失败，本地跑
+> `data/update.bat`（或 `python data/update_data.py`）更新后 `git push` 即可，网站会随之刷新。
+
+**第 3 步（可选）：绑定自己的域名**
+在 Settings → Pages → **Custom domain** 填你的域名，并按提示加一条 CNAME 解析即可（仓库会自动提交 `CNAME` 文件）。
+
+### 方式二：Vercel（最省心，部署体验好）
+1. 打开 [vercel.com](https://vercel.com)，用 GitHub 登录并 **Import** 本仓库。
+2. 本仓库已含 `vercel.json`（输出目录 `dlt-web`），无需额外配置，直接 **Deploy**。
+3. 部署后给一个 `xxx.vercel.app` 域名；之后本地更新数据 `git push` 即自动重新部署。
+   （Vercel 无内置定时抓取，数据更新靠你本地 push，或用上面的 GitHub Actions 推送触发。）
+
+### 方式三：Nginx / 对象存储 + CDN（需自有服务器）
+把 `dlt-web/` 整目录作为静态根发布即可，更新方式同「本地更新后重新同步」。
+
+### 带后端（VPS，对外提供服务）
+若想保留「打开网页即更新」体验并对外提供，可在云服务器用 Gunicorn + Nginx 托管 `dlt-web/serve.py`，
+并把「打开即更新」改为服务端定时更新 + 限流 + HTTPS，避免每个访客都触发抓取。
 
 ## 合规声明
 
