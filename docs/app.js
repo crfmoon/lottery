@@ -12,11 +12,12 @@ const SECTIONS = [
   { id: "repeat", name: "重号分析" },
   { id: "missing", name: "遗漏冷热" },
   { id: "span", name: "跨度分析" },
+  { id: "dup", name: "重复组合" },
   { id: "prize", name: "奖金·销量" },
 ];
 const CHART_ID = {
   sum: "sumChart", road: "roadChart",
-  odd: "oddChart", repeat: "repChart", missing: "missChart", span: "spanChart", prize: "prizeChart",
+  odd: "oddChart", repeat: "repChart", missing: "missChart", span: "spanChart", dup: "dupChart", prize: "prizeChart",
 };
 const charts = {};
 let curZone = "front";   // front / back
@@ -27,6 +28,7 @@ let roadPage = -1;                     // 012路 分期页码
 let oddView = "num", oddPage = -1;     // 奇偶大小
 let repView = "num", repPage = -1;     // 重号
 let spanView = "num", spanPage = -1;   // 跨度：数字连线 / 历史分布
+let dupMin = 3, dupTargetIndex = -1;    // 重复组合：最小重复数 / 当前查看期索引
 
 // ---------- 工具 ----------
 const sumFront = d => d.front.filter(x => x != null).reduce((a, b) => a + b, 0);
@@ -116,7 +118,7 @@ function showSection(id) {
   const render = {
     overview: renderOverview, trend: renderTrend, sum: renderSum,
     road: renderRoad, odd: renderOdd, repeat: renderRepeat,
-    missing: renderMissing, span: renderSpan, prize: renderPrize,
+    missing: renderMissing, span: renderSpan, dup: renderDup, prize: renderPrize,
   }[id];
   if (render) render();
 }
@@ -655,6 +657,111 @@ function setSpanView(v) {
   renderSpan();
 }
 function spanPageMove(d) { spanPage = stepPage(spanPage, d); renderSpan(); }
+
+// ---------- 重复组合（前区 5 码历史重复） ----------
+let _dupRevIndex = null;   // 号码 -> [期索引,...]
+let _dupDist = null;       // 缓存：全量历史按重叠数的重复对数量 {3,4,5}
+function dupRevIndex() {
+  if (_dupRevIndex) return _dupRevIndex;
+  const idx = {};
+  DATA.forEach((d, i) => d.front.forEach(x => { (idx[x] = idx[x] || []).push(i); }));
+  _dupRevIndex = idx;
+  return idx;
+}
+function dupGlobalDist() {
+  if (_dupDist) return _dupDist;
+  const idx = dupRevIndex();
+  const dist = { 3: 0, 4: 0, 5: 0 };
+  const N = DATA.length;
+  for (let i = 0; i < N; i++) {
+    const cand = {};
+    DATA[i].front.forEach(x => (idx[x] || []).forEach(j => {
+      if (j > i) cand[j] = (cand[j] || 0) + 1;
+    }));
+    for (const j in cand) { const c = cand[j]; if (c >= 3 && c <= 5) dist[c]++; }
+  }
+  _dupDist = dist;
+  return dist;
+}
+function dupMatches(targetIndex) {
+  const idx = dupRevIndex();
+  const nums = DATA[targetIndex].front;
+  const tally = {};
+  nums.forEach(x => (idx[x] || []).forEach(j => {
+    if (j !== targetIndex) tally[j] = (tally[j] || 0) + 1;
+  }));
+  const matches = [];
+  for (const j in tally) {
+    const c = tally[j];
+    if (c >= dupMin) {
+      const sj = DATA[j].front;
+      const inter = nums.filter(n => sj.includes(n)).sort((a, b) => a - b);
+      matches.push({ j: Number(j), count: c, inter });
+    }
+  }
+  matches.sort((a, b) => b.count - a.count || b.j - a.j);
+  return matches;
+}
+const pad2 = x => String(x).padStart(2, "0");
+function renderDup() {
+  if (dupTargetIndex < 0) dupTargetIndex = DATA.length - 1;
+  const dist = dupGlobalDist();
+  const total = (dist[3] || 0) + (dist[4] || 0) + (dist[5] || 0);
+  // 期号下拉（只填充一次）
+  const sel = document.getElementById("dupIssueSel");
+  if (!sel.dataset.filled) {
+    for (let i = DATA.length - 1; i >= 0; i--) {
+      const o = document.createElement("option");
+      o.value = i; o.textContent = DATA[i].issue + " (" + DATA[i].date + ")";
+      sel.appendChild(o);
+    }
+    sel.dataset.filled = "1";
+  }
+  sel.value = dupTargetIndex;
+  const ti = DATA[dupTargetIndex];
+  document.getElementById("dupSummary").innerHTML =
+    `全量历史中，前区两期重复 <b>≥3</b> 个号码的组合共 <b>${total}</b> 对（重复3个 ${dist[3] || 0}、4个 ${dist[4] || 0}、5个 ${dist[5] || 0}）。`;
+  document.getElementById("dupTarget").innerHTML =
+    `当前查看期 <b>${ti.issue}</b>（${ti.date}）前区： ` +
+    ti.front.map(x => `<span class="db">${pad2(x)}</span>`).join(" ");
+  // 分布柱状图
+  const chart = getChart("dupChart");
+  chart.setOption({
+    tooltip: { trigger: "axis" },
+    grid: { left: 55, right: 20, top: 20, bottom: 30 },
+    xAxis: { type: "category", data: ["重复3个", "重复4个", "重复5个"] },
+    yAxis: { type: "value", name: "对数" },
+    series: [{
+      type: "bar", data: [dist[3] || 0, dist[4] || 0, dist[5] || 0],
+      itemStyle: { color: "#e63946" }, label: { show: true, position: "top" },
+    }],
+  }, true);
+  // 匹配表
+  const matches = dupMatches(dupTargetIndex);
+  let html = `<table class="tt dup"><thead><tr>
+    <th>重复期号</th><th>重复期号码</th><th>重复号码</th><th>重复数</th></tr></thead><tbody>`;
+  if (matches.length === 0) {
+    html += `<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--sub)">无重复 ≥${dupMin} 个的期次</td></tr>`;
+  } else {
+    matches.forEach(m => {
+      const sj = DATA[m.j];
+      const ballsJ = sj.front.map(x =>
+        `<span class="db ${m.inter.includes(x) ? "hl" : ""}">${pad2(x)}</span>`).join("");
+      const inter = m.inter.map(x => `<span class="db hl">${pad2(x)}</span>`).join(" ");
+      html += `<tr><td>${sj.issue}<br><span class="d">${sj.date}</span></td>
+        <td>${ballsJ}</td><td>${inter}</td><td><b>${m.count}</b></td></tr>`;
+    });
+  }
+  html += "</tbody></table>";
+  document.getElementById("dupTableWrap").innerHTML = html;
+}
+function setDupMin(n) {
+  dupMin = n;
+  document.querySelectorAll('[data-dmin]').forEach(b =>
+    b.classList.toggle("active", Number(b.dataset.dmin) === n));
+  renderDup();
+}
+function onDupIssueChange(sel) { dupTargetIndex = Number(sel.value); renderDup(); }
 
 // ---------- 奖金 / 销量 ----------
 function renderPrize() {

@@ -38,6 +38,11 @@
   .toolbar button.active{background:var(--brand2);color:#fff;border-color:var(--brand2)}
   .chart{width:100%;height:460px}
   .hint{font-size:12px;color:var(--sub);margin-top:8px}
+  .db{display:inline-flex;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--card);border:1px solid var(--line);margin:1px}
+  .db.hl{background:#e63946;color:#fff;border-color:#e63946}
+  .d{font-size:11px;color:var(--sub)}
+  table.tt.dup td{padding:6px 8px;vertical-align:middle}
+  select{font-size:13px;padding:4px 6px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--text)}
   footer{text-align:center;color:var(--sub);font-size:12px;padding:20px}
   /* 传统走势图表格 */
   table.tt{border-collapse:collapse;font-size:12px;width:max-content}
@@ -196,6 +201,24 @@
     <div id="spanTrendWrap" class="nt-wrap" style="overflow-x:auto"></div>
     <div id="spanChart" class="chart" style="display:none"></div>
     <p class="hint">跨度 = 当期前区 5 码的最大值 − 最小值（范围 4–34）；数字连线按 30 期一组，最新在最下；历史分布：全部期次跨度频数（含均值线）。</p>
+  </section>
+
+  <section id="dup">
+    <h3>历史重复组合（前区 5 码）</h3>
+    <div class="toolbar">
+      <span>最小重复数：</span>
+      <button data-dmin="3" class="active" onclick="setDupMin(3)">≥3</button>
+      <button data-dmin="4" onclick="setDupMin(4)">≥4</button>
+      <button data-dmin="5" onclick="setDupMin(5)">≥5</button>
+      <span style="margin-left:16px">查看期号：
+        <select id="dupIssueSel" onchange="onDupIssueChange(this)"></select>
+      </span>
+    </div>
+    <div id="dupSummary" class="hint"></div>
+    <div id="dupTarget" style="margin:8px 0"></div>
+    <div id="dupChart" class="chart" style="height:240px"></div>
+    <div id="dupTableWrap" style="overflow:auto;max-height:520px"></div>
+    <p class="hint">选择某期，列出历史上与其前区重复 ≥N 个号码的所有期次，重复号码以红色高亮；上方柱状图为全量历史中重复对（重叠 3/4/5 个）的数量分布。仅统计前区。</p>
   </section>
 
   <section id="prize">
