@@ -11,11 +11,12 @@ const SECTIONS = [
   { id: "odd", name: "奇偶·大小" },
   { id: "repeat", name: "重号分析" },
   { id: "missing", name: "遗漏冷热" },
+  { id: "span", name: "跨度分析" },
   { id: "prize", name: "奖金·销量" },
 ];
 const CHART_ID = {
   sum: "sumChart", road: "roadChart",
-  odd: "oddChart", repeat: "repChart", missing: "missChart", prize: "prizeChart",
+  odd: "oddChart", repeat: "repChart", missing: "missChart", span: "spanChart", prize: "prizeChart",
 };
 const charts = {};
 let curZone = "front";   // front / back
@@ -25,6 +26,7 @@ let sumView = "num", sumPage = -1;     // 和值：数字连线 / 历史分布
 let roadPage = -1;                     // 012路 分期页码
 let oddView = "num", oddPage = -1;     // 奇偶大小
 let repView = "num", repPage = -1;     // 重号
+let spanView = "num", spanPage = -1;   // 跨度：数字连线 / 历史分布
 
 // ---------- 工具 ----------
 const sumFront = d => d.front.filter(x => x != null).reduce((a, b) => a + b, 0);
@@ -114,7 +116,7 @@ function showSection(id) {
   const render = {
     overview: renderOverview, trend: renderTrend, sum: renderSum,
     road: renderRoad, odd: renderOdd, repeat: renderRepeat,
-    missing: renderMissing, prize: renderPrize,
+    missing: renderMissing, span: renderSpan, prize: renderPrize,
   }[id];
   if (render) render();
 }
@@ -569,35 +571,90 @@ function setRepView(v) {
 function repPageMove(d) { repPage = stepPage(repPage, d); renderRepeat(); }
 
 // ---------- 遗漏 / 冷热 ----------
-function renderMissing() {
-  const miss = [], freq = [];
-  for (let m = 1; m <= FRONT_N; m++) {
-    let f = 0, cur = 0;
-    for (let i = DATA.length - 1; i >= 0; i--) {
-      if (DATA[i].front.includes(m)) { f++; break; }
-      cur++;
+// 每个号码计算：当前遗漏、平均遗漏、最大遗漏、历史总频次
+function omissionStat(m) {
+  let app = 0, maxOmit = 0, last = -1;
+  for (let i = 0; i < DATA.length; i++) {
+    if (DATA[i].front.includes(m)) {
+      if (last >= 0) maxOmit = Math.max(maxOmit, i - last - 1);
+      last = i; app++;
     }
-    // 总频次
-    let total = 0;
-    DATA.forEach(d => { if (d.front.includes(m)) total++; });
-    miss.push(cur); freq.push(total);
+  }
+  const cur = last >= 0 ? DATA.length - 1 - last : DATA.length;  // 当前遗漏(期)
+  const avg = app > 0 ? (DATA.length - app) / app : DATA.length;  // 平均遗漏(期)
+  return { cur, avg: Math.round(avg * 10) / 10, max: maxOmit, app };
+}
+function renderMissing() {
+  const miss = [], avg = [], max = [], freq = [];
+  for (let m = 1; m <= FRONT_N; m++) {
+    const s = omissionStat(m);
+    miss.push(s.cur); avg.push(s.avg); max.push(s.max); freq.push(s.app);
   }
   const chart = getChart("missChart");
   chart.setOption({
     tooltip: { trigger: "axis" },
-    legend: { data: ["当前遗漏(期)", "历史总频次"], top: 10 },
-    grid: { left: 50, right: 50, top: 40, bottom: 40 },
+    legend: { data: ["当前遗漏", "平均遗漏", "最大遗漏", "历史总频次"], top: 10 },
+    grid: { left: 50, right: 55, top: 45, bottom: 40 },
     xAxis: { type: "category", data: Array.from({ length: FRONT_N }, (_, i) => i + 1) },
     yAxis: [
-      { type: "value", name: "遗漏", position: "left" },
+      { type: "value", name: "遗漏(期)", position: "left" },
       { type: "value", name: "频次", position: "right" },
     ],
     series: [
-      { name: "当前遗漏(期)", type: "bar", data: miss, itemStyle: { color: "#e63946" } },
+      { name: "当前遗漏", type: "bar", data: miss, itemStyle: { color: "#e63946" } },
+      { name: "平均遗漏", type: "bar", data: avg, itemStyle: { color: "#f4a261" } },
+      { name: "最大遗漏", type: "bar", data: max, itemStyle: { color: "#9b5de5" } },
       { name: "历史总频次", type: "line", yAxisIndex: 1, data: freq, itemStyle: { color: "#457b9d" } },
     ],
   }, true);
 }
+
+// ---------- 跨度 ----------
+const spanFront = d => {
+  const a = d.front.filter(x => x != null);
+  return a.length ? Math.max(...a) - Math.min(...a) : 0;
+};
+function renderSpan() {
+  if (spanView === "num") {
+    const [s, e, p] = pageBounds(spanPage);
+    const cols = [];
+    for (let v = 4; v <= 34; v++) cols.push({ label: String(v), w: 28 });
+    const rows = DATA.slice(s, e).map(d => {
+      const v = spanFront(d);
+      return { issue: d.issue, pts: [{ col: v - 4, text: String(v), color: "#9b5de5" }] };
+    });
+    buildNumTrend("spanTrendWrap", cols, rows, 28);
+    setPageInfo("spanPageInfo", p, s, e);
+    return;
+  }
+  const chart = getChart("spanChart");
+  const counts = {};
+  for (let v = 4; v <= 34; v++) counts[v] = 0;
+  DATA.forEach(d => { const v = spanFront(d); if (counts[v] != null) counts[v]++; });
+  const keys = Object.keys(counts).map(Number).sort((a, b) => a - b);
+  const avg = (keys.reduce((a, k) => a + k * counts[k], 0) /
+    keys.reduce((a, k) => a + counts[k], 0)).toFixed(1);
+  chart.setOption({
+    tooltip: { trigger: "axis" },
+    grid: { left: 50, right: 30, top: 30, bottom: 50 },
+    xAxis: { type: "category", data: keys, name: "前区跨度(最大-最小)" },
+    yAxis: { type: "value", name: "出现期数" },
+    series: [{
+      type: "bar", data: keys.map(k => counts[k]), itemStyle: { color: "#9b5de5" },
+      markLine: { data: [{ xAxis: avg }], label: { formatter: "均值 " + avg } },
+    }],
+  }, true);
+}
+function setSpanView(v) {
+  spanView = v;
+  document.querySelectorAll('[data-span]').forEach(b =>
+    b.classList.toggle("active", b.dataset.span === v));
+  document.getElementById("spanTrendWrap").style.display = v === "num" ? "block" : "none";
+  document.getElementById("spanChart").style.display = v === "dist" ? "block" : "none";
+  document.getElementById("spanPager").style.display = v === "num" ? "" : "none";
+  renderSpan();
+}
+function spanPageMove(d) { spanPage = stepPage(spanPage, d); renderSpan(); }
 
 // ---------- 奖金 / 销量 ----------
 function renderPrize() {

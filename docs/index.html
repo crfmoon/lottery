@@ -178,7 +178,24 @@
   <section id="missing">
     <h3>前区号码 遗漏 / 冷热</h3>
     <div id="missChart" class="chart"></div>
-    <p class="hint">当前遗漏=距最新一期已多少期未出；总频次=历史出现次数（越久未出、频次越高越“热”需结合看）。</p>
+    <p class="hint">三色柱对照每个号码的当前遗漏 / 平均遗漏 / 最大遗漏（期）；蓝色折线为历史总频次。当前遗漏接近或超过最大遗漏的号码，通常被视为“待回补”。</p>
+  </section>
+
+  <section id="span">
+    <h3>前区跨度分析</h3>
+    <div class="toolbar">
+      <span>视图：</span>
+      <button data-span="num" class="active" onclick="setSpanView('num')">数字连线</button>
+      <button data-span="dist" onclick="setSpanView('dist')">历史分布</button>
+      <span style="margin-left:16px">
+        <button class="pgbtn" onclick="spanPageMove(-1)">◀ 上一页</button>
+        <span id="spanPageInfo" style="margin:0 10px;font-size:13px"></span>
+        <button class="pgbtn" onclick="spanPageMove(1)">下一页 ▶</button>
+      </span>
+    </div>
+    <div id="spanTrendWrap" class="nt-wrap" style="overflow-x:auto"></div>
+    <div id="spanChart" class="chart" style="display:none"></div>
+    <p class="hint">跨度 = 当期前区 5 码的最大值 − 最小值（范围 4–34）；数字连线按 30 期一组，最新在最下；历史分布：全部期次跨度频数（含均值线）。</p>
   </section>
 
   <section id="prize">
