@@ -1,0 +1,2 @@
+# 仅“导出 Excel(dlt_history.xlsx)”时需要；网站运行与数据抓取均为标准库，可不装
+openpyxl
