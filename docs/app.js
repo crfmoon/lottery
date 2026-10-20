@@ -29,6 +29,7 @@ let oddView = "num", oddPage = -1;     // 奇偶大小
 let repView = "num", repPage = -1;     // 重号
 let spanView = "num", spanPage = -1;   // 跨度：数字连线 / 历史分布
 let dupMin = 3, dupTargetIndex = -1;    // 重复组合：最小重复数 / 当前查看期索引
+let dupMode = "single";                  // single=当前期 / all=全部历史期对
 
 // ---------- 工具 ----------
 const sumFront = d => d.front.filter(x => x != null).reduce((a, b) => a + b, 0);
@@ -703,6 +704,56 @@ function dupMatches(targetIndex) {
   return matches;
 }
 const pad2 = x => String(x).padStart(2, "0");
+
+// 全量历史期对：按最小重复数收集（上限 cap）
+function dupAllPairs(min, cap) {
+  const idx = dupRevIndex();
+  const N = DATA.length;
+  const out = [];
+  for (let i = 0; i < N && out.length < cap; i++) {
+    const cand = {};
+    DATA[i].front.forEach(x => (idx[x] || []).forEach(j => {
+      if (j > i) cand[j] = (cand[j] || 0) + 1;
+    }));
+    for (const j in cand) {
+      const c = cand[j];
+      if (c >= min) {
+        const a = DATA[i].front, b = DATA[Number(j)].front;
+        const inter = a.filter(n => b.includes(n)).sort((x, y) => x - y);
+        out.push({ i, j: Number(j), count: c, inter });
+        if (out.length >= cap) break;
+      }
+    }
+  }
+  return out;
+}
+
+function renderDupAll(wrap) {
+  const dist = dupGlobalDist();
+  const total = dupMin === 3 ? (dist[3] + dist[4] + dist[5])
+    : dupMin === 4 ? (dist[4] + dist[5]) : dist[5];
+  const cap = 1000;
+  const pairs = dupAllPairs(dupMin, cap);
+  let html = `<table class="tt dup"><thead><tr>
+    <th>期号A</th><th>A号码</th><th>期号B</th><th>B号码</th><th>重复号码</th><th>重复数</th></tr></thead><tbody>`;
+  if (!pairs.length) {
+    html += `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--sub)">无重复 ≥${dupMin} 个的期对</td></tr>`;
+  } else {
+    pairs.forEach(p => {
+      const a = DATA[p.i], b = DATA[p.j];
+      const ba = a.front.map(x => `<span class="db ${p.inter.includes(x) ? "hl" : ""}">${pad2(x)}</span>`).join("");
+      const bb = b.front.map(x => `<span class="db ${p.inter.includes(x) ? "hl" : ""}">${pad2(x)}</span>`).join("");
+      const inter = p.inter.map(x => `<span class="db hl">${pad2(x)}</span>`).join(" ");
+      html += `<tr><td>${a.issue}<br><span class="d">${a.date}</span></td><td>${ba}</td>
+        <td>${b.issue}<br><span class="d">${b.date}</span></td><td>${bb}</td>
+        <td>${inter}</td><td><b>${p.count}</b></td></tr>`;
+    });
+  }
+  html += "</tbody></table>";
+  if (total > pairs.length) html += `<p class="hint">共 ${total} 对，仅显示前 ${pairs.length} 对。</p>`;
+  wrap.innerHTML = html;
+}
+
 function renderDup() {
   if (dupTargetIndex < 0) dupTargetIndex = DATA.length - 1;
   const dist = dupGlobalDist();
@@ -718,14 +769,11 @@ function renderDup() {
     sel.dataset.filled = "1";
   }
   sel.value = dupTargetIndex;
-  const ti = DATA[dupTargetIndex];
   document.getElementById("dupSummary").innerHTML =
-    `全量历史中，前区两期重复 <b>≥3</b> 个号码的组合共 <b>${total}</b> 对（重复3个 ${dist[3] || 0}、4个 ${dist[4] || 0}、5个 ${dist[5] || 0}）。`;
-  document.getElementById("dupTarget").innerHTML =
-    `当前查看期 <b>${ti.issue}</b>（${ti.date}）前区： ` +
-    ti.front.map(x => `<span class="db">${pad2(x)}</span>`).join(" ");
-  // 分布柱状图
+    `全量历史中，前区两期重复 <b>≥3</b> 个号码的组合共 <b>${total}</b> 对（重复3个 ${dist[3] || 0}、4个 ${dist[4] || 0}、5个 ${dist[5] || 0}）。点击柱状图可直接查看该重叠数的全部期对。`;
+  // 分布柱状图（可点击联动）
   const chart = getChart("dupChart");
+  chart.off("click");
   chart.setOption({
     tooltip: { trigger: "axis" },
     grid: { left: 55, right: 20, top: 20, bottom: 30 },
@@ -736,6 +784,29 @@ function renderDup() {
       itemStyle: { color: "#e63946" }, label: { show: true, position: "top" },
     }],
   }, true);
+  chart.on("click", p => {
+    if (p.componentType !== "series") return;
+    dupMin = 3 + p.dataIndex;
+    dupMode = "all";
+    document.querySelectorAll('[data-dmin]').forEach(b =>
+      b.classList.toggle("active", Number(b.dataset.dmin) === dupMin));
+    document.querySelectorAll('[data-dmode]').forEach(b =>
+      b.classList.toggle("active", b.dataset.dmode === "all"));
+    renderDup();
+  });
+  // 表格
+  const targetBox = document.getElementById("dupTarget");
+  const wrap = document.getElementById("dupTableWrap");
+  if (dupMode === "all") {
+    targetBox.style.display = "none";
+    renderDupAll(wrap);
+    return;
+  }
+  targetBox.style.display = "";
+  const ti = DATA[dupTargetIndex];
+  targetBox.innerHTML =
+    `当前查看期 <b>${ti.issue}</b>（${ti.date}）前区： ` +
+    ti.front.map(x => `<span class="db">${pad2(x)}</span>`).join(" ");
   // 匹配表
   const matches = dupMatches(dupTargetIndex);
   let html = `<table class="tt dup"><thead><tr>
@@ -753,7 +824,7 @@ function renderDup() {
     });
   }
   html += "</tbody></table>";
-  document.getElementById("dupTableWrap").innerHTML = html;
+  wrap.innerHTML = html;
 }
 function setDupMin(n) {
   dupMin = n;
@@ -761,7 +832,19 @@ function setDupMin(n) {
     b.classList.toggle("active", Number(b.dataset.dmin) === n));
   renderDup();
 }
-function onDupIssueChange(sel) { dupTargetIndex = Number(sel.value); renderDup(); }
+function setDupMode(m) {
+  dupMode = m;
+  document.querySelectorAll('[data-dmode]').forEach(b =>
+    b.classList.toggle("active", b.dataset.dmode === m));
+  renderDup();
+}
+function onDupIssueChange(sel) {
+  dupTargetIndex = Number(sel.value);
+  dupMode = "single";
+  document.querySelectorAll('[data-dmode]').forEach(b =>
+    b.classList.toggle("active", b.dataset.dmode === "single"));
+  renderDup();
+}
 
 // ---------- 奖金 / 销量 ----------
 function renderPrize() {

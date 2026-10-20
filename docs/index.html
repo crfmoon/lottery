@@ -210,6 +210,10 @@
       <button data-dmin="3" class="active" onclick="setDupMin(3)">≥3</button>
       <button data-dmin="4" onclick="setDupMin(4)">≥4</button>
       <button data-dmin="5" onclick="setDupMin(5)">≥5</button>
+      <span style="margin-left:16px">范围：
+        <button data-dmode="single" class="active" onclick="setDupMode('single')">当前期</button>
+        <button data-dmode="all" onclick="setDupMode('all')">全部历史期对</button>
+      </span>
       <span style="margin-left:16px">查看期号：
         <select id="dupIssueSel" onchange="onDupIssueChange(this)"></select>
       </span>
@@ -218,7 +222,7 @@
     <div id="dupTarget" style="margin:8px 0"></div>
     <div id="dupChart" class="chart" style="height:240px"></div>
     <div id="dupTableWrap" style="overflow:auto;max-height:520px"></div>
-    <p class="hint">选择某期，列出历史上与其前区重复 ≥N 个号码的所有期次，重复号码以红色高亮；上方柱状图为全量历史中重复对（重叠 3/4/5 个）的数量分布。仅统计前区。</p>
+    <p class="hint">「当前期」= 选某期，列出历史上与其前区重复 ≥N 个号码的期次；「全部历史期对」= 直接列出全量重复 ≥N 个的期对（≥3 最多显示前 1000 对）。点击上方柱状图可直接查看对应重叠数的全部期对。重复号码红色高亮，仅统计前区。</p>
   </section>
 
   <section id="prize">
