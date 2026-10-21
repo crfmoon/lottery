@@ -43,6 +43,10 @@
   .d{font-size:11px;color:var(--sub)}
   table.tt.dup td{padding:6px 8px;vertical-align:middle}
   select{font-size:13px;padding:4px 6px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--text)}
+  .law-grid{display:flex;flex-wrap:wrap;gap:6px;max-width:560px;margin-top:8px}
+  .law-grid.back{max-width:360px}
+  .law-cell{width:62px;height:52px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+  .law-cell span{font-size:11px;font-weight:500;opacity:.92}
   footer{text-align:center;color:var(--sub);font-size:12px;padding:20px}
   /* 传统走势图表格 */
   table.tt{border-collapse:collapse;font-size:12px;width:max-content}
@@ -223,6 +227,19 @@
     <div id="dupChart" class="chart" style="height:240px"></div>
     <div id="dupTableWrap" style="overflow:auto;max-height:520px"></div>
     <p class="hint">「当前期」= 选某期，列出历史上与其前区重复 ≥N 个号码的期次；「全部历史期对」= 直接列出全量重复 ≥N 个的期对（≥3 最多显示前 1000 对）。点击上方柱状图可直接查看对应重叠数的全部期对。重复号码红色高亮，仅统计前区。</p>
+  </section>
+
+  <section id="law">
+    <h3>冷热规律（出号密度热区 + 遗漏回补）</h3>
+    <div class="toolbar">
+      <span>区域：</span>
+      <button data-lawzone="front" class="active" onclick="setLawZone('front')">前区</button>
+      <button data-lawzone="back" onclick="setLawZone('back')">后区</button>
+    </div>
+    <div id="lawHeat" class="law-grid"></div>
+    <div id="lawSummary" class="hint"></div>
+    <div id="lawGapChart" class="chart" style="height:340px"></div>
+    <p class="hint">出号密度热区：每格为该号码历史出现频次（红=热区、蓝=冷区）。遗漏回补：所有号码"两次开出之间的遗漏期数"分布，竖线为平均遗漏；约 X% 的回补发生在遗漏 ≤ 平均遗漏 时，可辅助判断冷号是否临回补。</p>
   </section>
 
   <section id="prize">

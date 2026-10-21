@@ -13,11 +13,12 @@ const SECTIONS = [
   { id: "missing", name: "遗漏冷热" },
   { id: "span", name: "跨度分析" },
   { id: "dup", name: "重复组合" },
+  { id: "law", name: "冷热规律" },
   { id: "prize", name: "奖金·销量" },
 ];
 const CHART_ID = {
   sum: "sumChart", road: "roadChart",
-  odd: "oddChart", repeat: "repChart", missing: "missChart", span: "spanChart", dup: "dupChart", prize: "prizeChart",
+  odd: "oddChart", repeat: "repChart", missing: "missChart", span: "spanChart", dup: "dupChart", law: "lawGapChart", prize: "prizeChart",
 };
 const charts = {};
 let curZone = "front";   // front / back
@@ -30,6 +31,7 @@ let repView = "num", repPage = -1;     // 重号
 let spanView = "num", spanPage = -1;   // 跨度：数字连线 / 历史分布
 let dupMin = 3, dupTargetIndex = -1;    // 重复组合：最小重复数 / 当前查看期索引
 let dupMode = "single";                  // single=当前期 / all=全部历史期对
+let lawZone = "front";                    // 冷热规律：前区 / 后区
 
 // ---------- 工具 ----------
 const sumFront = d => d.front.filter(x => x != null).reduce((a, b) => a + b, 0);
@@ -119,7 +121,7 @@ function showSection(id) {
   const render = {
     overview: renderOverview, trend: renderTrend, sum: renderSum,
     road: renderRoad, odd: renderOdd, repeat: renderRepeat,
-    missing: renderMissing, span: renderSpan, dup: renderDup, prize: renderPrize,
+    missing: renderMissing, span: renderSpan, dup: renderDup, law: renderLaw, prize: renderPrize,
   }[id];
   if (render) render();
 }
@@ -844,6 +846,77 @@ function onDupIssueChange(sel) {
   document.querySelectorAll('[data-dmode]').forEach(b =>
     b.classList.toggle("active", b.dataset.dmode === "single"));
   renderDup();
+}
+
+// ---------- 冷热规律（出号密度热区 + 遗漏回补） ----------
+function lawStats(zone) {
+  const N = zone === "front" ? 35 : 12;
+  const counts = new Array(N + 1).fill(0);
+  const appear = Array.from({ length: N + 1 }, () => []);
+  DATA.forEach((d, i) => {
+    (zone === "front" ? d.front : d.back).forEach(x => { counts[x]++; appear[x].push(i); });
+  });
+  const gaps = [];
+  for (let m = 1; m <= N; m++) {
+    const ap = appear[m];
+    for (let k = 0; k < ap.length - 1; k++) gaps.push(ap[k + 1] - ap[k] - 1);
+  }
+  const ranked = [];
+  for (let m = 1; m <= N; m++) ranked.push({ m, c: counts[m] });
+  ranked.sort((a, b) => b.c - a.c);
+  const avg = gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 0;
+  const maxG = gaps.length ? Math.max(...gaps) : 0;
+  const leAvg = gaps.length ? gaps.filter(g => g <= avg).length / gaps.length : 0;
+  return { N, counts, ranked, avg, maxG, gaps, leAvg };
+}
+function renderLaw() {
+  const zone = lawZone;
+  const s = lawStats(zone);
+  const maxC = Math.max(...s.counts.slice(1));
+  const minC = Math.min(...s.counts.slice(1));
+  const heat = document.getElementById("lawHeat");
+  heat.className = "law-grid" + (zone === "back" ? " back" : "");
+  heat.innerHTML = s.counts.slice(1).map((c, i) => {
+    const m = i + 1;
+    const t = maxC === minC ? 0.5 : (c - minC) / (maxC - minC);
+    const hue = 220 - 220 * t;
+    const bg = `hsl(${hue},70%,${58 - t * 12}%)`;
+    return `<div class="law-cell" style="background:${bg}">${m}<span>${c}</span></div>`;
+  }).join("");
+  const hot = s.ranked.slice(0, 5).map(r => `${r.m}(${r.c})`).join("、");
+  const cold = s.ranked.slice(-5).reverse().map(r => `${r.m}(${r.c})`).join("、");
+  document.getElementById("lawSummary").innerHTML =
+    `${zone === "front" ? "前区 35" : "后区 12"}码出号密度：最热 <b>${hot}</b>；最冷 <b>${cold}</b>。` +
+    `遗漏回补：平均遗漏 <b>${s.avg.toFixed(1)}</b> 期，最大 <b>${s.maxG}</b> 期；约 <b>${(s.leAvg * 100).toFixed(0)}%</b> 的回补发生在遗漏 ≤ 平均遗漏 时。`;
+  // 遗漏回补分布直方图
+  const binW = 5;
+  const maxBin = Math.max(1, Math.floor(s.maxG / binW));
+  const bins = new Array(maxBin + 1).fill(0);
+  s.gaps.forEach(g => { bins[Math.min(Math.floor(g / binW), maxBin)]++; });
+  const labels = [];
+  for (let b = 0; b <= maxBin; b++) {
+    const lo = b * binW, hi = lo + binW - 1;
+    labels.push(b === maxBin ? `${lo}+` : `${lo}-${hi}`);
+  }
+  const avgBin = Math.min(Math.floor(s.avg / binW), maxBin);
+  const chart = getChart("lawGapChart");
+  chart.setOption({
+    tooltip: { trigger: "axis" },
+    legend: { data: ["回补次数"], top: 10 },
+    grid: { left: 55, right: 25, top: 45, bottom: 40 },
+    xAxis: { type: "category", data: labels, name: "遗漏期数" },
+    yAxis: { type: "value", name: "回补次数" },
+    series: [{
+      name: "回补次数", type: "bar", data: bins, itemStyle: { color: "#457b9d" },
+      markLine: { symbol: "none", data: [{ xAxis: labels[avgBin], label: { formatter: "均值 " + s.avg.toFixed(1) } }] },
+    }],
+  }, true);
+}
+function setLawZone(z) {
+  lawZone = z;
+  document.querySelectorAll('[data-lawzone]').forEach(b =>
+    b.classList.toggle("active", b.dataset.lawzone === z));
+  renderLaw();
 }
 
 // ---------- 奖金 / 销量 ----------
