@@ -793,6 +793,15 @@ function dupAllPairs(min, cap) {
   return out;
 }
 
+function dupYearBadge(draw) {
+  const year = new Intl.DateTimeFormat('en', { timeZone: 'Asia/Shanghai', year: 'numeric' }).format(new Date());
+  return draw.date && draw.date.slice(0, 4) === year
+    ? `<span class="current-year-badge">${year}年 · 今年</span>` : '';
+}
+function dupIssueCell(draw) {
+  const badge = dupYearBadge(draw);
+  return `<td${badge ? ' class="current-year-cell"' : ''}>${draw.issue}${badge}<br><span class="d">${draw.date}</span></td>`;
+}
 function renderDupAll(wrap) {
   const dist = dupGlobalDist();
   const total = dupMin === 3 ? (dist[3] + dist[4] + dist[5])
@@ -809,8 +818,8 @@ function renderDupAll(wrap) {
       const ba = a.front.map(x => `<span class="db ${p.inter.includes(x) ? "hl" : ""}">${pad2(x)}</span>`).join("");
       const bb = b.front.map(x => `<span class="db ${p.inter.includes(x) ? "hl" : ""}">${pad2(x)}</span>`).join("");
       const inter = p.inter.map(x => `<span class="db hl">${pad2(x)}</span>`).join(" ");
-      html += `<tr><td>${a.issue}<br><span class="d">${a.date}</span></td><td>${ba}</td>
-        <td>${b.issue}<br><span class="d">${b.date}</span></td><td>${bb}</td>
+      html += `<tr>${dupIssueCell(a)}<td>${ba}</td>
+        ${dupIssueCell(b)}<td>${bb}</td>
         <td>${inter}</td><td><b>${p.count}</b></td></tr>`;
     });
   }
@@ -828,7 +837,7 @@ function renderDup() {
   if (!sel.dataset.filled) {
     for (let i = DATA.length - 1; i >= 0; i--) {
       const o = document.createElement("option");
-      o.value = i; o.textContent = DATA[i].issue + " (" + DATA[i].date + ")";
+      o.value = i; o.textContent = DATA[i].issue + " (" + DATA[i].date + ")" + (dupYearBadge(DATA[i]) ? ' · 今年' : '');
       sel.appendChild(o);
     }
     sel.dataset.filled = "1";
@@ -870,7 +879,7 @@ function renderDup() {
   targetBox.style.display = "";
   const ti = DATA[dupTargetIndex];
   targetBox.innerHTML =
-    `当前查看期 <b>${ti.issue}</b>（${ti.date}）前区： ` +
+    `当前查看期 <b>${ti.issue}</b>（${ti.date}）${dupYearBadge(ti)} 前区： ` +
     ti.front.map(x => `<span class="db">${pad2(x)}</span>`).join(" ");
   // 匹配表
   const matches = dupMatches(dupTargetIndex);
@@ -884,7 +893,7 @@ function renderDup() {
       const ballsJ = sj.front.map(x =>
         `<span class="db ${m.inter.includes(x) ? "hl" : ""}">${pad2(x)}</span>`).join("");
       const inter = m.inter.map(x => `<span class="db hl">${pad2(x)}</span>`).join(" ");
-      html += `<tr><td>${sj.issue}<br><span class="d">${sj.date}</span></td>
+      html += `<tr>${dupIssueCell(sj)}
         <td>${ballsJ}</td><td>${inter}</td><td><b>${m.count}</b></td></tr>`;
     });
   }
