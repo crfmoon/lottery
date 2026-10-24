@@ -765,7 +765,7 @@ function dupMatches(targetIndex) {
       matches.push({ j: Number(j), count: c, inter });
     }
   }
-  matches.sort((a, b) => b.count - a.count || b.j - a.j);
+  matches.sort((a, b) => Number(isCurrentDrawYear(DATA[b.j])) - Number(isCurrentDrawYear(DATA[a.j])) || b.j - a.j || b.count - a.count);
   return matches;
 }
 const pad2 = x => String(x).padStart(2, "0");
@@ -775,17 +775,19 @@ function dupAllPairs(min, cap) {
   const idx = dupRevIndex();
   const N = DATA.length;
   const out = [];
-  for (let i = 0; i < N && out.length < cap; i++) {
+  const order = Array.from({length:N},(_,i)=>i).sort((a,b)=>Number(isCurrentDrawYear(DATA[b]))-Number(isCurrentDrawYear(DATA[a])) || b-a);
+  for (const j of order) {
+    if(out.length>=cap) break;
     const cand = {};
-    DATA[i].front.forEach(x => (idx[x] || []).forEach(j => {
-      if (j > i) cand[j] = (cand[j] || 0) + 1;
+    DATA[j].front.forEach(x => (idx[x] || []).forEach(i => {
+      if (i < j) cand[i] = (cand[i] || 0) + 1;
     }));
-    for (const j in cand) {
-      const c = cand[j];
+    for (const i of Object.keys(cand).map(Number).sort((a,b)=>Number(isCurrentDrawYear(DATA[b]))-Number(isCurrentDrawYear(DATA[a])) || b-a)) {
+      const c = cand[i];
       if (c >= min) {
         const a = DATA[i].front, b = DATA[Number(j)].front;
         const inter = a.filter(n => b.includes(n)).sort((x, y) => x - y);
-        out.push({ i, j: Number(j), count: c, inter });
+        out.push({ i, j, count: c, inter });
         if (out.length >= cap) break;
       }
     }
@@ -793,10 +795,13 @@ function dupAllPairs(min, cap) {
   return out;
 }
 
+const dupCalendarYear = new Intl.DateTimeFormat('en', { timeZone: 'Asia/Shanghai', year: 'numeric' }).format(new Date());
+function isCurrentDrawYear(draw) {
+  return Boolean(draw.date && draw.date.slice(0, 4) === dupCalendarYear);
+}
 function dupYearBadge(draw) {
-  const year = new Intl.DateTimeFormat('en', { timeZone: 'Asia/Shanghai', year: 'numeric' }).format(new Date());
-  return draw.date && draw.date.slice(0, 4) === year
-    ? `<span class="current-year-badge">${year}年 · 今年</span>` : '';
+  return isCurrentDrawYear(draw)
+    ? `<span class="current-year-badge">${draw.date.slice(0,4)}年 · 今年</span>` : '';
 }
 function dupIssueCell(draw) {
   const badge = dupYearBadge(draw);
@@ -832,6 +837,7 @@ function renderComboFrequency() {
   const size=Number(document.getElementById('comboSize').value);
   const target=document.getElementById('comboScope').value==='current' ? DATA[dupTargetIndex < 0 ? DATA.length-1 : dupTargetIndex].front : null;
   const groups=CombinationFrequency.collect(DATA,size,target);
+  groups.sort((a,b)=>Number(b.indices.some(i=>isCurrentDrawYear(DATA[i])))-Number(a.indices.some(i=>isCurrentDrawYear(DATA[i]))) || b.indices.at(-1)-a.indices.at(-1) || b.indices.length-a.indices.length);
   const host=document.getElementById('comboFrequency'); host.replaceChildren();
   for(const [label,filter] of [['出现3次',g=>g.indices.length===3],['出现4次及以上',g=>g.indices.length>=4]]) {
     const list=groups.filter(filter), section=document.createElement('div'), title=document.createElement('h4');
@@ -843,13 +849,13 @@ function renderComboFrequency() {
       list.slice(shown,shown+50).forEach(g=>{
         const detail=document.createElement('details'); detail.style.margin='8px 0';
         const summary=document.createElement('summary');
-        summary.textContent=`${g.numbers.map(pad2).join(' ')} · 同出 ${g.indices.length} 次 · 最近 ${DATA[g.indices.at(-1)].issue} 期`;
+        summary.textContent=`${g.numbers.map(pad2).join(' ')} · 同出 ${g.indices.length} 次 · 最近 ${DATA[g.indices.at(-1)].issue} 期${g.indices.some(i=>isCurrentDrawYear(DATA[i]))?' · 含今年开奖':''}`;
         detail.appendChild(summary);
         detail.addEventListener('toggle',()=>{
           if(!detail.open || detail.dataset.filled) return;
           detail.dataset.filled='1';
           const table=document.createElement('table'); table.className='tt dup';
-          table.innerHTML='<thead><tr><th>出现期号 / 日期</th><th>当期前区号码</th></tr></thead><tbody>'+[...g.indices].reverse().map(i=>{
+          table.innerHTML='<thead><tr><th>出现期号 / 日期</th><th>当期前区号码</th></tr></thead><tbody>'+[...g.indices].sort((a,b)=>Number(isCurrentDrawYear(DATA[b]))-Number(isCurrentDrawYear(DATA[a])) || b-a).map(i=>{
             const d=DATA[i];
             return `<tr>${dupIssueCell(d)}<td>${d.front.map(n=>`<span class="db ${g.numbers.includes(n)?'hl':''}">${pad2(n)}</span>`).join('')}</td></tr>`;
           }).join('')+'</tbody>';
