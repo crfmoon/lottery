@@ -4,7 +4,8 @@ import csv
 import json
 import os
 import re
-from datetime import datetime
+import hashlib
+from datetime import datetime, timezone, timedelta
 
 HERE = os.path.dirname(os.path.abspath(__file__))   # 本文件所在目录（data/）
 base = os.path.dirname(HERE)                          # 项目根（data 的上一级）
@@ -31,8 +32,16 @@ with open(os.path.join(data_dir, "dlt_history.csv"), encoding="utf-8-sig") as f:
             "pool": float(pool) if pool else None,
         })
 
+data_js = os.path.join(web_dir, "data.js")
+payload = json.dumps(rows, ensure_ascii=False)
+if os.path.exists(data_js):
+    with open(data_js, encoding="utf-8") as f:
+        existing = f.read()
+    if "window.DLT_DATA = " + payload + ";\n" in existing:
+        print("网站数据没有变化，保留文件及缓存版本")
+        raise SystemExit(0)
 meta = {"count": len(rows), "first": rows[0]["issue"], "last": rows[-1]["issue"],
-        "updated": datetime.now().strftime("%Y-%m-%d %H:%M")}
+        "updated": datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M")}
 out = "// 自动生成，请勿手改。来源：中国体彩官网历史开奖接口\n"
 out += "window.DLT_META = " + json.dumps(meta, ensure_ascii=False) + ";\n"
 out += "window.DLT_DATA = " + json.dumps(rows, ensure_ascii=False) + ";\n"
@@ -42,7 +51,7 @@ with open(data_js, "w", encoding="utf-8") as f:
 # 给 index.html 里 data.js 的引用加版本号，避免浏览器缓存旧数据
 idx = os.path.join(web_dir, "index.html")
 if os.path.exists(idx):
-    ts = int(datetime.now().timestamp())
+    ts = int(hashlib.sha256(out.encode("utf-8")).hexdigest()[:12], 16)
     html = open(idx, encoding="utf-8").read()
     html2 = re.sub(r'src="data\.js(?:\?v=\d+)?"', 'src="data.js?v=%d"' % ts, html)
     if html2 != html:

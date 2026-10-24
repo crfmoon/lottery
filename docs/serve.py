@@ -31,14 +31,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def handle_update(self):
         try:
             py = sys.executable
-            r1 = subprocess.run([py, os.path.join(DATA_DIR, "gather_dlt.py")],
+            r1 = subprocess.run([py, os.path.join(DATA_DIR, "update_data.py")],
                                 capture_output=True, text=True, cwd=DATA_DIR)
             changed = "SKIP_NO_NEW" not in r1.stdout
             if r1.returncode != 0:
                 self.send_json(500, {"ok": False, "error": r1.stderr[-500:]})
                 return
-            subprocess.run([py, os.path.join(DATA_DIR, "gen_data.py")],
-                           capture_output=True, text=True, cwd=DATA_DIR, check=True)
             self.send_json(200, {"ok": True, "changed": changed})
         except Exception as e:
             self.send_json(500, {"ok": False, "error": str(e)})

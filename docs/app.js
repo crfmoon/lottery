@@ -129,7 +129,7 @@ function showSection(id) {
 // ---------- 总览 ----------
 function renderOverview() {
   let sub = `共 ${META.count} 期 · ${META.first} → ${META.last} · 数据源：体彩官网历史开奖接口`;
-  if (META.updated) sub += ` · 更新于 ${META.updated}`;
+  if (META.updated) sub += ` · 数据变更于 ${META.updated}（北京时间）`;
   document.getElementById("subtitle").textContent = sub;
   const last = DATA[DATA.length - 1];
   const maxSale = Math.max(...DATA.map(d => d.sale || 0));
@@ -951,7 +951,18 @@ window.addEventListener("resize", () => {
 // 打开网页时：若由本地后端(serve.py)托管，则自动拉取一次最新数据；
 // 仅当确有新期(changes)才刷新页面，避免无限刷新；双击 file:// 打开会安全忽略。
 (function autoUpdate() {
-  fetch("/api/update").then(r => (r.ok ? r.json() : null)).then(j => {
+  const status = document.getElementById("updateStatus");
+  function loadStatus() {
+    return fetch("update-status.json", { cache: "no-store" })
+      .then(r => { if (!r.ok) throw new Error("暂无状态"); return r.json(); })
+      .then(j => {
+        const checked = new Date(j.checked_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
+        status.textContent = `最近检查：${checked}（北京时间） · ${j.ok ? "检查成功" : "更新失败，当前展示上次成功的数据"} · 次日 00:30 更新 / 08:30 补查`;
+      }).catch(() => { status.textContent = "暂无更新检查记录 · 次日 00:30 更新 / 08:30 补查（北京时间）"; });
+  }
+  loadStatus();
+  fetch("/api/update").then(r => (r.headers.get("content-type") || "").includes("application/json") ? r.json() : null).then(j => {
     if (j && j.ok && j.changed) location.reload();
+    else if (j) loadStatus();
   }).catch(() => {});
 })();

@@ -67,11 +67,17 @@ python update_data.py      # = gather_dlt.py + gen_data.py
 4. 稍等一两分钟，页面顶部会出现 `https://crfmoon.github.io/lottery/` 的访问地址，点开即见网站。
 
 **第 2 步：数据自动更新（已配置，免维护）**
-仓库里的 `.github/workflows/update.yml` 会在 **每周一/三/六 北京时间约 22:00** 自动：
+仓库里的 `.github/workflows/update.yml` 会在 **开奖次日（周二/四/日）北京时间 00:30** 自动更新，并在 **08:30** 补查：
 - 连体彩官网抓最新开奖 → 生成 `docs/data.js` → 提交回 `main` 分支；
 - 因 Pages 是从 `main` 分支的 `/docs` 发布，提交后网站**自动重新发布**，访客看到的永远是最新数据。
 
 你完全不用手动干预。若想立刻更新（比如开奖当晚），可到仓库 **Actions** 页手动 **Run workflow**。
+
+每次检查都会回查至少最近五期，补齐同一期后续修订的销售额、奖池和奖级明细；有较多缺失期时自动继续翻页。写入前校验期号、日期、号码范围和重复号码，异常时保留原 CSV。
+
+页面分别展示数据变更时间与最近检查时间（北京时间），检查失败会提示当前展示上次成功的数据。检查状态保存在 `docs/update-status.json`；无数据变化时不重写 CSV、`data.js` 或缓存版本，但会提交最新检查状态。抓取失败也会尝试发布失败状态，任务仍标记失败。
+
+运行离线校验：`python -m unittest discover -s data -p "test_*.py"`。
 
 > 注意：GitHub 的境外 runner 访问国内体彩接口偶尔会偏慢/失败。若某次自动更新失败，本地跑
 > `data/update.bat`（或 `python data/update_data.py`）更新后 `git push` 即可，网站会随之刷新。

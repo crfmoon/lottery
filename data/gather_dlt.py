@@ -9,6 +9,8 @@ import json
 import os
 import time
 import urllib.request
+import io
+from datetime import date
 
 # 1. 绕过失效的本地代理（否则所有外网请求都会失败）
 for k in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"):
@@ -37,9 +39,12 @@ def fetch_page(page):
             with urllib.request.urlopen(req, timeout=20) as r:
                 raw = r.read()
             try:
-                return json.loads(raw.decode("gbk"))
+                data = json.loads(raw.decode("utf-8-sig"))
             except UnicodeDecodeError:
-                return json.loads(raw.decode("utf-8", errors="ignore"))
+                data = json.loads(raw.decode("gbk"))
+            if not data.get("success") or not data.get("value", {}).get("list"):
+                raise ValueError("官方接口返回失败或空数据")
+            return data
         except Exception as e:
             if attempt == 2:
                 raise
@@ -92,10 +97,16 @@ def main():
     lst = first["value"].get("list", [])
     remote_latest = max((it.get("lotteryDrawNum", "") for it in lst), default="")
     local = latest_local()
-    if local and remote_latest and remote_latest <= local:
-        print(f">>> 本地已是最新（本地 {local} / 远程 {remote_latest}），跳过抓取。")
-        print("SKIP_NO_NEW")
-        return
+    base = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(base, "dlt_history.csv")
+    previous = []
+    if os.path.exists(csv_path):
+        with open(csv_path, encoding="utf-8-sig", newline="") as f:
+            previous = list(csv.DictReader(f))
+    # 至少回查最近五期；断更较久时继续翻页，直到覆盖本地最新五期。
+    cutoff = previous[-5]["期号"] if len(previous) >= 5 else None
+    if local and remote_latest < local:
+        raise ValueError("官方接口最新期号落后于本地，保留现有数据")
     print(f"    总记录数={total}, 总页数={pages}")
 
     records = []
@@ -105,6 +116,8 @@ def main():
         for it in lst:
             res = it.get("lotteryDrawResult", "")
             nums = res.split()
+            if len(nums) != 7:
+                raise ValueError(f"开奖号码数量无效：{it.get('lotteryDrawNum')}")
             front = nums[:5]
             back = nums[5:7] if len(nums) >= 7 else []
             prize = parse_prize(it.get("prizeLevelList", []))
@@ -135,10 +148,19 @@ def main():
                 row[f"{name}单注奖金"] = amt
             records.append(row)
         print(f"    已抓第 {page}/{pages} 页，累计 {len(records)} 条")
+        if cutoff and any(r["期号"] <= cutoff for r in records):
+            break
         time.sleep(0.4)
 
     # 按开奖日期升序（最早 -> 最新）
-    records.sort(key=lambda r: (r["开奖日期"], r["期号"]))
+    validate_records(records)
+    merged = {r["期号"]: r for r in previous}
+    for row in records:
+        old = merged.get(row["期号"], {})
+        # 官方暂缺的金额不要覆盖已入库的完整值。
+        merged[row["期号"]] = {k: old.get(k, "") if v == "" else v for k, v in row.items()}
+    records = sorted(merged.values(), key=lambda r: (r["开奖日期"], r["期号"]))
+    validate_records(records)
     print(f">>> 共抓取 {len(records)} 条，最早={records[0]['期号']}({records[0]['开奖日期']}) "
           f"最新={records[-1]['期号']}({records[-1]['开奖日期']})")
 
@@ -150,10 +172,20 @@ def main():
 
     base = os.path.dirname(os.path.abspath(__file__))
     csv_path = os.path.join(base, "dlt_history.csv")
-    with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
-        w = csv.DictWriter(f, fieldnames=fields)
-        w.writeheader()
-        w.writerows(records)
+    output = io.StringIO(newline="")
+    w = csv.DictWriter(output, fieldnames=fields)
+    w.writeheader()
+    w.writerows(records)
+    content = output.getvalue().encode("utf-8-sig")
+    if os.path.exists(csv_path):
+        with open(csv_path, "rb") as f:
+            if f.read() == content:
+                print("SKIP_NO_NEW")
+                return
+    temporary = csv_path + ".tmp"
+    with open(temporary, "wb") as f:
+        f.write(content)
+    os.replace(temporary, csv_path)
     print(f">>> 已写出 CSV: {csv_path}")
 
     # 尝试写出 Excel
@@ -172,6 +204,22 @@ def main():
         print(">>> 未安装 openpyxl，跳过 Excel 输出（CSV 已可用，可直接用 Excel 打开）。")
     except Exception as e:
         print(f">>> 写出 Excel 失败（已忽略，不影响网站用 CSV）：{e}")
+
+
+def validate_records(records):
+    if not records:
+        raise ValueError("没有有效开奖数据")
+    seen = set()
+    for row in records:
+        issue = row["期号"]
+        if not issue.isdigit() or len(issue) != 5 or issue in seen:
+            raise ValueError(f"期号无效或重复：{issue}")
+        seen.add(issue)
+        date.fromisoformat(row["开奖日期"])
+        for zone, count, upper in (("前区", 5, 35), ("后区", 2, 12)):
+            nums = [int(row[f"{zone}{i}"]) for i in range(1, count + 1)]
+            if len(set(nums)) != count or any(n < 1 or n > upper for n in nums):
+                raise ValueError(f"{issue} {zone}号码无效")
 
 
 if __name__ == "__main__":

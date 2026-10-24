@@ -10,6 +10,8 @@
 import subprocess
 import sys
 import os
+import json
+from datetime import datetime, timezone, timedelta
 
 base = os.path.dirname(os.path.abspath(__file__))
 
@@ -19,8 +21,23 @@ def step(name):
     subprocess.run([sys.executable, os.path.join(base, name)], check=True)
 
 
-if __name__ == "__main__":
-    step("gather_dlt.py")   # 抓取最新数据
-    step("gen_data.py")     # 生成网站 data.js（含自动刷新版本号防缓存）
+def main():
+    status = {"checked_at": datetime.now(timezone(timedelta(hours=8))).isoformat(timespec="seconds")}
+    try:
+        step("gather_dlt.py")
+        step("gen_data.py")
+        status["ok"] = True
+    except Exception:
+        status["ok"] = False
+        raise
+    finally:
+        path = os.path.join(base, "..", "docs", "update-status.json")
+        with open(path + ".tmp", "w", encoding="utf-8") as f:
+            json.dump(status, f, ensure_ascii=False)
+        os.replace(path + ".tmp", path)
     print("\n>>> 更新完成。在浏览器刷新网站即可看到最新数据"
           "（若用本地服务器，请按 Ctrl+F5 强制刷新）。")
+
+
+if __name__ == "__main__":
+    main()
