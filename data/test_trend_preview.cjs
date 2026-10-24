@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
-const { parse } = require('../docs/trend-preview.js');
+const { parse, metrics } = require('../docs/trend-preview.js');
+assert.deepEqual(metrics({front:[32,1,15,6,10],back:[4,3]}), [64,31,'2:3','3:1:1',7,1]);
+assert.deepEqual(metrics({front:[3,10,14,25,34],back:[1,9]}), [86,31,'2:3','2:1:2',10,8]);
 assert.deepEqual(parse('1. 34 03 10 14 25 + 09 01\n2. 06，11，19，26，33 ＋ 07、12'), [
   { front:[3,10,14,25,34], back:[1,9] }, { front:[6,11,19,26,33], back:[7,12] }
 ]);

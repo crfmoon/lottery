@@ -72,6 +72,17 @@
   .pgbtn{border:1px solid var(--line);border-radius:8px;padding:5px 12px;background:#fff;
     cursor:pointer;font-size:13px}
   .pgbtn:hover{border-color:var(--brand)}
+  #trendTable.hide-miss td.miss{color:transparent}
+  #trendTable td,#trendTable th{min-width:30px;height:32px}
+  #trendTable th{position:sticky;top:0;z-index:4}
+  #trendTable thead tr:nth-child(2) th{top:32px}
+  #trendTable td.issue,#trendTable th:first-child[rowspan]{position:sticky;left:0;z-index:5;min-width:82px}
+  #trendTable th:first-child[rowspan]{z-index:6}
+  #trendTable .ball-s{position:relative;z-index:2}
+  #trendTable .back-cell{background:#eef6ff}
+  #trendTable .metric{min-width:48px;background:#f2f3f6;font-weight:600;font-size:11px}
+  #trendTable .prediction-row td{background:#e1e1e1}
+  #trendTable .prediction-row .issue{background:#d5d5d5}
 </style>
 </head>
 <body>
@@ -92,7 +103,8 @@
   <section id="trend">
     <div class="toolbar">
       <span>区域：</span>
-      <button data-zone="front" class="active" onclick="setZone('front')">前区 01–35</button>
+      <button data-zone="both" class="active" onclick="setZone('both')">前后区合并</button>
+      <button data-zone="front" onclick="setZone('front')">前区 01–35</button>
       <button data-zone="back" onclick="setZone('back')">后区 01–12</button>
       <span style="margin-left:16px">视图：
         <button data-view="table" class="active" onclick="setView('table')">遗漏表</button>
@@ -104,8 +116,9 @@
         <button class="pgbtn" onclick="pageMove(1)">下一页 ▶</button>
       </span>
       <span style="margin-left:16px">连线：
-        <button data-line="trend" class="active" onclick="toggleTrend()">同号走势</button>
-        <button data-line="pattern" class="active" onclick="togglePattern()">规律高亮</button>
+        <button data-line="trend" class="active" onclick="toggleTrend()">走势连线</button>
+        <button data-line="pattern" onclick="togglePattern()">邻号／重号高亮</button>
+        <label><input type="checkbox" id="trendShowMiss" checked onchange="renderTrend()"> 显示遗漏数字</label>
       </span>
     </div>
     <details style="margin-bottom:14px" open>
@@ -115,13 +128,13 @@
       <div class="toolbar"><button onclick="applyTrendPredictions()">更新走势预览</button><button onclick="clearTrendPredictions()">清除预测</button></div>
       <p id="trendPredictionStatus" class="hint" role="status"></p>
     </details>
-    <div id="trendTableView"><div style="overflow-x:auto">
+    <div id="trendTableView"><div style="overflow:auto;max-height:760px" id="trendScroller"><div style="position:relative;width:max-content">
       <table id="trendTable" class="tt"></table>
-    </div></div>
+    </div></div></div>
     <div id="trendLineView" style="display:none">
       <div id="trendChart" class="chart"></div>
     </div>
-    <p class="hint">遗漏表：红球=该期开出，灰字=遗漏期数；走势线：每期前区5码按大小排序为 5 条轨迹曲线（后区 2 条），看号码高低波动。每组 30 期，最新在最下。<br>连线（可点上方开关关闭）：彩色淡竖线=各号走势；<b style="color:#f4a261">橙粗段</b>=重号(相邻两期同号)；<b style="color:#2a9d8f">青横线</b>=连号(同期内相邻号)；<b style="color:#9b5de5">紫斜线</b>=斜连(连续≥3期、每期号码±1 的同向斜线)。</p>
+    <p class="hint">合并表：红球为前区，蓝球为后区，灰球为预测；遗漏数字可隐藏。前区连接相邻期同号，后区按大小排序对应连接；高亮开关显示前区邻期差1及同号。各预测组分别从最新开奖按排序位置虚线延伸，互不串联。单区表保留原有规律线；独立走势线视图需选择前区或后区。</p>
   </section>
 
   <section id="sum">

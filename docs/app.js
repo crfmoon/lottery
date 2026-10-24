@@ -22,7 +22,7 @@ const CHART_ID = {
   odd: "oddChart", repeat: "repChart", missing: "missChart", span: "spanChart", dup: "dupChart", law: "lawGapChart", prize: "prizeChart",
 };
 const charts = {};
-let curZone = "front";   // front / back
+let curZone = "both";   // both / front / back
 let curRoad = "num";     // num / pie
 let curOdd = "odd";      // odd / big
 let sumView = "num", sumPage = -1;     // 和值：数字连线 / 历史分布
@@ -157,7 +157,7 @@ const GROUP = 30;
 let curPage = -1; // -1 = 定位到最新一页
 let curView = "table"; // table | line
 let showTrend = true;   // 同号纵向走势线
-let showPattern = true; // 重号/连号/斜连 高亮
+let showPattern = false; // 按需开启，减少默认连线干扰
 const missCache = { front: null, back: null };
 let trendPredictions = [];
 function applyTrendPredictions() {
@@ -195,6 +195,15 @@ function renderTrend() {
   if (curView === "line") { renderTrendLine(); return; }
   const total = trendTotal();
   if (curPage < 0 || curPage >= total) curPage = total - 1;
+  const table = document.getElementById('trendTable');
+  table.classList.toggle('hide-miss', !document.getElementById('trendShowMiss').checked);
+  if (curZone === 'both') {
+    const start = curPage * GROUP, end = Math.min(start + GROUP, DATA.length);
+    TrendPreview.renderCombined(table, DATA, start, end, trendPredictions, { showTrend, showPattern });
+    document.getElementById('trendPageInfo').textContent = `第 ${curPage + 1}/${total} 页 · ${DATA[start].issue} – ${DATA[end - 1].issue}`;
+    return;
+  }
+  table.classList.remove('combined-trend');
   const zone = curZone;
   const N = zone === "front" ? FRONT_N : BACK_N;
   const miss = ensureMiss(zone);
@@ -364,6 +373,12 @@ function pageMove(d) {
 
 function setZone(z) {
   curZone = z;
+  if (z === 'both') {
+    curView = 'table';
+    document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === 'table'));
+    document.getElementById('trendTableView').style.display = 'block';
+    document.getElementById('trendLineView').style.display = 'none';
+  }
   curPage = -1;
   document.querySelectorAll('[data-zone]').forEach(b =>
     b.classList.toggle("active", b.dataset.zone === z));
@@ -407,6 +422,10 @@ function renderTrendLine() {
 }
 
 function setView(v) {
+  if (v === 'line' && curZone === 'both') {
+    curZone = 'front';
+    document.querySelectorAll('[data-zone]').forEach(b => b.classList.toggle('active', b.dataset.zone === 'front'));
+  }
   curView = v;
   document.querySelectorAll('[data-view]').forEach(b =>
     b.classList.toggle("active", b.dataset.view === v));
@@ -990,6 +1009,7 @@ buildTabs();
 showSection("overview");
 window.addEventListener("resize", () => {
   Object.values(charts).forEach(c => c.resize());
+  if (curView === 'table' && document.getElementById('trend').classList.contains('active')) renderTrend();
 });
 
 // 打开网页时：若由本地后端(serve.py)托管，则自动拉取一次最新数据；
