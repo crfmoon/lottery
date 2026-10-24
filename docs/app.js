@@ -5,6 +5,7 @@ const FRONT_N = 35, BACK_N = 12;
 
 const SECTIONS = [
   { id: "overview", name: "总览" },
+  { id: "selection", name: "下期选号参考" },
   { id: "trend", name: "号码走势" },
   { id: "sum", name: "和值分布" },
   { id: "road", name: "012路" },
@@ -120,6 +121,7 @@ function showSection(id) {
     s.classList.toggle("active", s.id === id));
   const render = {
     overview: renderOverview, trend: renderTrend, sum: renderSum,
+    selection: () => window.initSelection(DATA),
     road: renderRoad, odd: renderOdd, repeat: renderRepeat,
     missing: renderMissing, span: renderSpan, dup: renderDup, law: renderLaw, prize: renderPrize,
   }[id];

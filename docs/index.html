@@ -243,6 +243,12 @@
     <p class="hint">出号密度热区：每格为该号码历史出现频次（红=热区、蓝=冷区）。遗漏回补：所有号码"两次开出之间的遗漏期数"分布，竖线为平均遗漏；约 X% 的回补发生在遗漏 ≤ 平均遗漏 时，可辅助判断冷号是否临回补。</p>
   </section>
 
+  <section id="selection">
+    <h3>下期选号参考</h3>
+    <p class="hint">频次和遗漏是历史描述，不代表下期概率。所有条件默认关闭；随机对照使用相同注数。方案仅保存在当前浏览器。</p>
+    <div id="selectionApp"></div>
+  </section>
+
   <section id="prize">
     <h3>奖池滚存 与 销售额 走势</h3>
     <div id="prizeChart" class="chart"></div>
@@ -253,6 +259,7 @@
 
 <script src="echarts.min.js"></script>
 <script src="data.js?v=1792833879"></script>
+<script src="selection.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
