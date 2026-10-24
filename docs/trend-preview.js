@@ -24,6 +24,20 @@
       [f.filter(n=>n<=12).length,f.filter(n=>n>=13&&n<=24).length,f.filter(n=>n>=25).length].join(':'),
       b.reduce((a,b)=>a+b,0), b.at(-1)-b[0]];
   }
+  function diagonalRuns(rows) {
+    const runs = [];
+    for (let r=0;r<rows.length;r++) for (const p of rows[r]) for (const step of [-1,1]) {
+      if (r && rows[r-1].some(q=>q.n===p.n-step)) continue;
+      const run = [p];
+      for(let i=r+1;i<rows.length;i++) {
+        const next = rows[i].find(q=>q.n===p.n+(i-r)*step);
+        if(!next) break;
+        run.push(next);
+      }
+      if(run.length>=3) runs.push(run);
+    }
+    return runs;
+  }
   function renderCombined(table, data, start, end, predictions, options) {
     table.classList.add('combined-trend');
     const pad = n => String(n).padStart(2,'0');
@@ -72,9 +86,14 @@
         if (z==='back' && options.showTrend) a.forEach((p,k)=>{if(b[k])line(p,b[k],color);});
         if(z==='front') a.forEach(p=>b.forEach(q=>{
           if(p.n===q.n && (options.showTrend||options.showPattern)) line(p,q,color,false,options.showPattern?2.4:1.4);
-          else if(options.showPattern && Math.abs(p.n-q.n)===1) line(p,q,color);
+          else if((options.showTrend||options.showPattern) && Math.abs(p.n-q.n)===1) line(p,q,color);
         }));
       }
+    }
+    if(options.showTrend || options.showPattern) {
+      diagonalRuns(actual.map(tr=>points(tr,'front'))).forEach(run=> {
+        for(let i=1;i<run.length;i++) line(run[i-1],run[i],'#e63946',false,3);
+      });
     }
     if(options.showTrend && actual.length) for(const tr of trs.filter(tr=>tr.classList.contains('prediction-row'))) {
       for(const z of ['front','back']) {
@@ -84,6 +103,6 @@
     }
     wrapper.insertAdjacentHTML('beforeend',svg+'</svg>');
   }
-  root.TrendPreview = { parse, metrics, renderCombined };
-  if (typeof module !== 'undefined') module.exports = { parse, metrics };
+  root.TrendPreview = { parse, metrics, renderCombined, diagonalRuns };
+  if (typeof module !== 'undefined') module.exports = { parse, metrics, diagonalRuns };
 })(typeof window === 'undefined' ? globalThis : window);
