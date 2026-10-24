@@ -3,8 +3,9 @@ name: Update DLT Data
 # 开奖日晚自动更新数据并发布；也可在 Actions 页面手动触发
 on:
   schedule:
-    # 大乐透每周一/三/六开奖（北京时间约 21:25），此处用 UTC 14:00 ≈ 北京 22:00
-    - cron: "0 14 * * 1,3,6"
+    # 大乐透在周一/三/六开奖。等到开奖次日凌晨再抓取，确保销售额、奖池和
+    # 奖级明细已由官方接口补齐；UTC 周二/四/日 16:30 = 北京次日 00:30。
+    - cron: "30 16 * * 2,4,0"
   workflow_dispatch:
 
 permissions:
@@ -23,8 +24,8 @@ jobs:
           python-version: "3.11"
 
       - name: 抓取并生成数据
+        working-directory: data
         run: |
-          cd data
           python gather_dlt.py
           python gen_data.py
 
