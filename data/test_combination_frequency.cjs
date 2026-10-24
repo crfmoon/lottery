@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict');
+const {collect}=require('../docs/combination-frequency.js');
+const data=[[1,2,3,4,5],[1,2,3,4,6],[1,2,3,4,7],[1,2,3,8,9]].map(front=>({front}));
+const triples=collect(data,3);
+assert.equal(triples.find(g=>g.numbers.join(',')==='1,2,3').indices.length,4);
+assert.equal(triples.find(g=>g.numbers.join(',')==='1,2,4').indices.length,3);
+assert.deepEqual(collect(data,4).map(g=>g.numbers),[[1,2,3,4]]);
+assert.equal(collect(data,5).length,0);
+assert.equal(collect(data,3,[1,2,3,8,9]).length,1);
+assert.equal(collect([],3).length,0);
+assert.deepEqual(data[0].front,[1,2,3,4,5]);
+console.log('Combination occurrence counts, sizes and target filtering: OK');

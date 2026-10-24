@@ -828,8 +828,44 @@ function renderDupAll(wrap) {
   wrap.innerHTML = html;
 }
 
+function renderComboFrequency() {
+  const size=Number(document.getElementById('comboSize').value);
+  const target=document.getElementById('comboScope').value==='current' ? DATA[dupTargetIndex < 0 ? DATA.length-1 : dupTargetIndex].front : null;
+  const groups=CombinationFrequency.collect(DATA,size,target);
+  const host=document.getElementById('comboFrequency'); host.replaceChildren();
+  for(const [label,filter] of [['出现3次',g=>g.indices.length===3],['出现4次及以上',g=>g.indices.length>=4]]) {
+    const list=groups.filter(filter), section=document.createElement('div'), title=document.createElement('h4');
+    title.textContent=`${label}：${list.length} 组`; section.appendChild(title);
+    const body=document.createElement('div'); section.appendChild(body);
+    let shown=0;
+    const more=document.createElement('button'); more.className='pgbtn'; more.textContent='再显示50组';
+    function appendPage() {
+      list.slice(shown,shown+50).forEach(g=>{
+        const detail=document.createElement('details'); detail.style.margin='8px 0';
+        const summary=document.createElement('summary');
+        summary.textContent=`${g.numbers.map(pad2).join(' ')} · 同出 ${g.indices.length} 次 · 最近 ${DATA[g.indices.at(-1)].issue} 期`;
+        detail.appendChild(summary);
+        detail.addEventListener('toggle',()=>{
+          if(!detail.open || detail.dataset.filled) return;
+          detail.dataset.filled='1';
+          const table=document.createElement('table'); table.className='tt dup';
+          table.innerHTML='<thead><tr><th>出现期号 / 日期</th><th>当期前区号码</th></tr></thead><tbody>'+[...g.indices].reverse().map(i=>{
+            const d=DATA[i];
+            return `<tr>${dupIssueCell(d)}<td>${d.front.map(n=>`<span class="db ${g.numbers.includes(n)?'hl':''}">${pad2(n)}</span>`).join('')}</td></tr>`;
+          }).join('')+'</tbody>';
+          detail.appendChild(table);
+        });
+        body.appendChild(detail);
+      });
+      shown=Math.min(shown+50,list.length); more.hidden=shown>=list.length;
+    }
+    if(!list.length) body.textContent='暂无符合条件的组合。';
+    more.onclick=appendPage; section.appendChild(more); appendPage(); host.appendChild(section);
+  }
+}
 function renderDup() {
   if (dupTargetIndex < 0) dupTargetIndex = DATA.length - 1;
+  renderComboFrequency();
   const dist = dupGlobalDist();
   const total = (dist[3] || 0) + (dist[4] || 0) + (dist[5] || 0);
   // 期号下拉（只填充一次）
