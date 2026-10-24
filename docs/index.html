@@ -108,6 +108,13 @@
         <button data-line="pattern" class="active" onclick="togglePattern()">规律高亮</button>
       </span>
     </div>
+    <details style="margin-bottom:14px" open>
+      <summary>预测号码预览</summary>
+      <p class="hint">每行一组：前区5个号码 + 后区2个号码，最多20组。各组是同一期的独立备选，不作为连续开奖，不写入历史数据。仅在最新一页的遗漏表中追加预览；虚线按号码从小到大的位置连接最新开奖与各组。</p>
+      <textarea id="trendPredictionInput" rows="6" aria-label="预测号码，每行一组" placeholder="03 10 14 25 34 + 01 09&#10;06 11 19 26 33 + 07 12" style="width:100%;max-width:660px;padding:10px;font:14px monospace;border:1px solid #ccc;border-radius:8px"></textarea>
+      <div class="toolbar"><button onclick="applyTrendPredictions()">更新走势预览</button><button onclick="clearTrendPredictions()">清除预测</button></div>
+      <p id="trendPredictionStatus" class="hint" role="status"></p>
+    </details>
     <div id="trendTableView"><div style="overflow-x:auto">
       <table id="trendTable" class="tt"></table>
     </div></div>
@@ -260,6 +267,7 @@
 <script src="echarts.min.js"></script>
 <script src="data.js?v=1792833879"></script>
 <script src="selection.js"></script>
+<script src="trend-preview.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

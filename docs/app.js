@@ -159,6 +159,23 @@ let curView = "table"; // table | line
 let showTrend = true;   // 同号纵向走势线
 let showPattern = true; // 重号/连号/斜连 高亮
 const missCache = { front: null, back: null };
+let trendPredictions = [];
+function applyTrendPredictions() {
+  const status = document.getElementById('trendPredictionStatus');
+  try {
+    const parsed = TrendPreview.parse(document.getElementById('trendPredictionInput').value);
+    trendPredictions = parsed;
+    curPage = -1;
+    setView('table');
+    status.textContent = parsed.length ? `已追加 ${parsed.length} 组预测。灰色球为预测号码，非开奖号码；切换前后区可查看对应预览。` : '已清除预测预览。';
+  } catch (e) { status.textContent = e.message + '；保留此前预览。'; }
+}
+function clearTrendPredictions() {
+  document.getElementById('trendPredictionInput').value = '';
+  trendPredictions = [];
+  document.getElementById('trendPredictionStatus').textContent = '已清除预测预览。';
+  renderTrend();
+}
 
 function ensureMiss(zone) {
   if (missCache[zone]) return missCache[zone];
@@ -217,6 +234,21 @@ function renderTrend() {
     }
     html += `<td class="sum">${cnt[0]}</td><td class="sum">${cnt[1]}</td><td class="sum">${cnt[2]}</td></tr>`;
   }
+  if (end === DATA.length) {
+    // Each alternative starts from the same real history, never from the previous prediction.
+    const lastSeen = Array(N + 1).fill(-1);
+    DATA.forEach((d, i) => d[zone].forEach(n => { lastSeen[n] = i; }));
+    trendPredictions.forEach((ticket, index) => {
+      const nums = ticket[zone], cnt = ranges.map(([lo, hi]) => nums.filter(n => n >= lo && n <= hi).length);
+      html += `<tr class="prediction-row" style="background:#e4e4e4"><td class="issue" style="background:#e4e4e4">预测组${index + 1}</td>`;
+      for (let m = 1; m <= N; m++) {
+        html += nums.includes(m)
+          ? `<td class="prediction-hit"><span class="ball-s" style="background:#888">${pad(m)}</span></td>`
+          : `<td class="miss">${lastSeen[m] < 0 ? '-' : DATA.length - lastSeen[m]}</td>`;
+      }
+      html += cnt.map(n => `<td class="sum" style="background:#e4e4e4">${n}</td>`).join('') + '</tr>';
+    });
+  }
   html += "</tbody>";
   const tbl = document.getElementById("trendTable");
   tbl.innerHTML = html;
@@ -231,7 +263,7 @@ function drawTrendLines(tbl, N) {
   scroller.style.position = "relative";
   scroller.querySelectorAll(".nt-svg").forEach(s => s.remove());
   if (!showTrend && !showPattern) return;
-  const trs = Array.from(tbl.querySelectorAll("tbody tr"));
+  const trs = Array.from(tbl.querySelectorAll("tbody tr:not(.prediction-row)"));
   const rows = trs.length;
   const colHits = {};            // m -> [{r,x,y}] 该号码在本页各命中位置
   const hitPos = [];             // 每行 -> [{m,x,y,r}]
@@ -304,6 +336,16 @@ function drawTrendLines(tbl, N) {
     });
   }
 
+  if (showTrend && trs.length) {
+    const lastHits = hitPos[hitPos.length - 1];
+    tbl.querySelectorAll('.prediction-row').forEach(tr => {
+      const targets = Array.from(tr.querySelectorAll('.prediction-hit'));
+      targets.forEach((td, i) => {
+        const source = lastHits[i];
+        if (source) svg += `<line x1="${source.x}" y1="${source.y}" x2="${td.offsetLeft + td.offsetWidth / 2}" y2="${td.offsetTop + td.offsetHeight / 2}" stroke="#888" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.6"/>`;
+      });
+    });
+  }
   svg += "</svg>";
   scroller.insertAdjacentHTML("beforeend", svg);
 }
