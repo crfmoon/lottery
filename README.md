@@ -25,13 +25,15 @@
 .
 ├── data/                  # 数据抓取与生成脚本
 │   ├── gather_dlt.py      # 抓取体彩官网历史开奖 -> dlt_history.csv(.xlsx)
+│   ├── import_official_json.py  # 官方接口被拦时，导入浏览器另存的官方返回体
 │   ├── gen_data.py        # CSV -> ../docs/data.js（网站加载的数据）
-│   ├── update_data.py     # 一键更新：抓取 + 生成
+│   ├── update_data.py     # 一键更新：抓取 + 生成，并写更新状态
 │   └── update.bat         # Windows 双击更新
 └── docs/               # 网站（静态）
     ├── index.html
     ├── app.js
     ├── data.js            # ★ 网站实际加载的数据（window.DLT_DATA）
+    ├── update-status.json # 最近一次检查时间与失败原因
     ├── echarts.min.js     # 本地图表库
     ├── serve.py           # 本地后端：托管网页 + 打开即更新接口
     └── 启动网站.bat        # Windows 双击启动
@@ -62,6 +64,21 @@ python update_data.py      # = gather_dlt.py + gen_data.py
 ```
 或双击 `data/update.bat`。`gen_data.py` 会顺带给 `index.html` 里 `data.js` 的引用加版本号，避免浏览器缓存旧数据。
 
+## 官方接口被安全策略拦截（HTTP 567）怎么办
+
+体彩官网前置了腾讯云 EdgeOne，脚本请求可能被判定为爬虫并拦截，返回 `HTTP 567`，页面提示「请求已被站点的安全策略拦截」。此时抓取会**立即失败、不再重试**（重试只会加重风控），`docs/update-status.json` 记录失败原因，网页顶部状态栏直接显示「官方接口被安全策略拦截（HTTP 567）」，数据保持上一次成功的样子，不会被写坏。
+
+按顺序尝试：
+
+1. **换网络出口**：用手机热点等新 IP 再跑 `python data/update_data.py`。
+2. **带浏览器 Cookie**：浏览器能正常打开官方接口时，从开发者工具复制 Cookie，PowerShell 下 `$env:SPORTTERY_COOKIE="..."`，再跑更新。
+3. **浏览器另存 JSON 导入**（完全离线，数据仍只来自官方）：浏览器打开
+   `https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=85&provinceId=0&pageSize=100&pageNo=1&isVerify=1`
+   另存为 JSON，然后 `python data/import_official_json.py 保存的文件.json`，会走与直连抓取完全相同的解析、合并与校验。
+4. **走代理**：`$env:SPORTTERY_PROXY="http://127.0.0.1:7890"`。
+
+其它可调项：`SPORTTERY_MIN_INTERVAL`（翻页间隔，默认 1.5 秒加随机抖动）。装了 `curl_cffi`（`pip install curl_cffi`）会自动用 Chrome TLS 指纹请求，不装则回退标准库，不影响运行。
+
 ## 部署到公网
 
 > 本项目是纯静态站点（无后端数据库），只需把 `docs/` 下的前端文件发布出去即可。
@@ -84,7 +101,7 @@ python update_data.py      # = gather_dlt.py + gen_data.py
 
 每次检查都会回查至少最近五期，补齐同一期后续修订的销售额、奖池和奖级明细；有较多缺失期时自动继续翻页。写入前校验期号、日期、号码范围和重复号码，异常时保留原 CSV。
 
-页面分别展示数据变更时间与最近检查时间（北京时间），检查失败会提示当前展示上次成功的数据。检查状态保存在 `docs/update-status.json`；无数据变化时不重写 CSV、`data.js` 或缓存版本，但会提交最新检查状态。抓取失败也会尝试发布失败状态，任务仍标记失败。
+页面分别展示数据变更时间与最近检查时间（北京时间），检查失败会提示当前展示上次成功的数据及具体原因。检查状态保存在 `docs/update-status.json`，失败时记录错误类型、HTTP 状态码与处置建议；无数据变化时不重写 CSV、`data.js` 或缓存版本，但会提交最新检查状态。抓取失败也会尝试发布失败状态，任务仍标记失败。
 
 运行离线校验：`python -m unittest discover -s data -p "test_*.py"`。
 

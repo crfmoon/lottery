@@ -1,2 +1,5 @@
 # 仅“导出 Excel(dlt_history.xlsx)”时需要；网站运行与数据抓取均为标准库，可不装
 openpyxl
+
+# 可选：装了就用 Chrome TLS 指纹请求体彩接口（对 EdgeOne 风控更友好），不装自动回退标准库
+# curl_cffi
