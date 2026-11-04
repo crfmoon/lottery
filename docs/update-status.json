@@ -1,1 +1,1 @@
-{"checked_at": "2026-11-03T21:50:30+08:00", "ok": true, "last_issue": "26125"}
+{"checked_at": "2026-11-05T06:04:54+08:00", "ok": false, "error": {"type": "waf_blocked", "http_status": 567, "message": "官方接口返回 HTTP 567，请求被站点安全策略（EdgeOne）拦截", "hint": "官方站点（腾讯云 EdgeOne）拦截了本次请求。可换网络出口（如手机热点）后重试；或在浏览器能正常打开官方接口时，另存返回的 JSON 后运行 import_official_json.py 导入"}, "last_issue": "26125"}
