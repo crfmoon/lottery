@@ -130,9 +130,6 @@ function showSection(id) {
 
 // ---------- 总览 ----------
 function renderOverview() {
-  let sub = `共 ${META.count} 期 · ${META.first} → ${META.last} · 数据源：体彩官网历史开奖接口`;
-  if (META.updated) sub += ` · 数据变更于 ${META.updated}（北京时间）`;
-  document.getElementById("subtitle").textContent = sub;
   const last = DATA[DATA.length - 1];
   const maxSale = Math.max(...DATA.map(d => d.sale || 0));
   const maxPool = Math.max(...DATA.map(d => d.pool || 0));
@@ -1066,35 +1063,7 @@ window.addEventListener("resize", () => {
 // 打开网页时：若由本地后端(serve.py)托管，则自动拉取一次最新数据；
 // 仅当确有新期(changes)才刷新页面，避免无限刷新；双击 file:// 打开会安全忽略。
 (function autoUpdate() {
-  const status = document.getElementById("updateStatus");
-  const ERROR_TEXT = {
-    waf_blocked: "官方接口被安全策略拦截",
-    network: "网络请求失败",
-    invalid_data: "官方数据校验未通过",
-    render_failed: "网页数据生成失败",
-    timeout: "更新超时",
-    unknown: "更新失败"
-  };
-  function describeError(j) {
-    const err = j && j.error;
-    if (!err) return "更新失败，当前展示上次成功的数据";
-    let text = ERROR_TEXT[err.type] || "更新失败";
-    if (err.type === "waf_blocked" && err.http_status) text += `（HTTP ${err.http_status}）`;
-    if (err.hint) text += `，${err.hint}`;
-    return text + "；当前展示上次成功的数据";
-  }
-  function loadStatus() {
-    return fetch("update-status.json", { cache: "no-store" })
-      .then(r => { if (!r.ok) throw new Error("暂无状态"); return r.json(); })
-      .then(j => {
-        const checked = new Date(j.checked_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
-        const result = j.ok ? "检查成功" : describeError(j);
-        status.textContent = `最近检查：${checked}（北京时间） · ${result} · 次日 00:30 更新 / 08:30 补查`;
-      }).catch(() => { status.textContent = "暂无更新检查记录 · 次日 00:30 更新 / 08:30 补查（北京时间）"; });
-  }
-  loadStatus();
   fetch("/api/update").then(r => (r.headers.get("content-type") || "").includes("application/json") ? r.json() : null).then(j => {
     if (j && j.ok && j.changed) location.reload();
-    else if (j) loadStatus();
   }).catch(() => {});
 })();
