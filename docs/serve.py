@@ -12,6 +12,7 @@
 """
 import http.server
 import json
+import hashlib
 import os
 import socketserver
 import subprocess
@@ -37,9 +38,19 @@ def _read_status():
 
 
 def _run_update():
+    data_path = os.path.join(WEB, "data.js")
+    def fingerprint():
+        try:
+            with open(data_path, "rb") as f:
+                return hashlib.sha256(f.read()).hexdigest()
+        except FileNotFoundError:
+            return None
+    before = fingerprint()
     try:
         r = subprocess.run([sys.executable, os.path.join(DATA_DIR, "update_data.py")],
-                           capture_output=True, text=True, cwd=DATA_DIR, timeout=UPDATE_TIMEOUT)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+                           cwd=DATA_DIR, timeout=UPDATE_TIMEOUT)
     except subprocess.TimeoutExpired:
         return {"ok": False, "changed": False,
                 "error": {"type": "timeout", "message": f"更新超过 {UPDATE_TIMEOUT} 秒未完成",
@@ -48,7 +59,7 @@ def _run_update():
         return {"ok": False, "changed": False,
                 "error": {"type": "unknown", "message": str(e)[:300]}}
     if r.returncode == 0:
-        return {"ok": True, "changed": "SKIP_NO_NEW" not in r.stdout}
+        return {"ok": True, "changed": before != fingerprint()}
     status = _read_status() or {}
     error = status.get("error") or {"type": "unknown",
                                     "message": (r.stderr or r.stdout or "")[-300:]}

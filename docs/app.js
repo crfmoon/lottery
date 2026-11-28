@@ -1062,8 +1062,48 @@ window.addEventListener("resize", () => {
 
 // 打开网页时：若由本地后端(serve.py)托管，则自动拉取一次最新数据；
 // 仅当确有新期(changes)才刷新页面，避免无限刷新；双击 file:// 打开会安全忽略。
-(function autoUpdate() {
-  fetch("/api/update").then(r => (r.headers.get("content-type") || "").includes("application/json") ? r.json() : null).then(j => {
-    if (j && j.ok && j.changed) location.reload();
-  }).catch(() => {});
+(async function autoUpdate() {
+  const notice = document.createElement("div");
+  notice.setAttribute("role", "status");
+  notice.className = "status-banner";
+  document.body.prepend(notice);
+  const loaded = window.DLT_META || {};
+  const current = `当前数据：${loaded.last || "未知"}期。`;
+  if (location.protocol === "file:") {
+    notice.textContent = current + "直接打开文件无法自动更新，请通过本地启动脚本打开网站。";
+    return;
+  }
+  notice.textContent = current + "正在检查更新…";
+  try {
+    const response = await fetch("/api/update", { cache: "no-store" });
+    let result;
+    if ((response.headers.get("content-type") || "").includes("application/json")) {
+      result = await response.json();
+    }
+    if (result && typeof result.ok === "boolean") {
+      if (!result.ok) throw new Error(result.error?.message || "更新失败");
+      // 不能仅依赖 changed：后端会缓存更新结果，刷新后仍可能返回 changed=true。
+      const dataResponse = await fetch("data.js", { cache: "no-store" });
+      if (!dataResponse.ok) throw new Error("读取更新后的数据失败");
+      const source = await dataResponse.text();
+      const match = source.match(/window\.DLT_META = (.*);/);
+      if (!match) throw new Error("数据版本信息无效");
+      const latest = JSON.parse(match[1]);
+      if (latest.revision !== loaded.revision || latest.last !== loaded.last) {
+        location.reload();
+        return;
+      }
+      notice.textContent = current + "已完成官方数据同步检查。";
+      return;
+    }
+    // 静态托管没有更新接口，显示定时任务状态，不静默忽略失败。
+    const statusResponse = await fetch("update-status.json", { cache: "no-store" });
+    if (!statusResponse.ok) throw new Error("无法读取定时更新状态");
+    const status = await statusResponse.json();
+    notice.textContent = current + (status.ok
+      ? `最近同步：${status.checked_at}。静态站点由定时任务更新。`
+      : `最近同步失败：${status.error?.message || "未知原因"}。检查时间：${status.checked_at}`);
+  } catch (error) {
+    notice.textContent = current + `自动更新失败：${error.message}。当前继续显示已有数据。`;
+  }
 })();

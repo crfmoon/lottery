@@ -29,6 +29,9 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: 安装官方接口请求依赖
+        run: python -m pip install curl_cffi
+
       # 抓取可能被官方站点安全策略拦截（HTTP 567），失败也要继续走到提交步骤，
       # 把失败状态写回仓库，避免「静默停更」
       - name: 抓取并生成数据

@@ -22,6 +22,22 @@ def _load(name, filename):
 gather = _load("gather", "gather_dlt.py")
 import_official_json = _load("import_official_json", "import_official_json.py")
 update_data = _load("update_data", "update_data.py")
+serve = _load("serve", "../docs/serve.py")
+
+
+class ServerTests(unittest.TestCase):
+    def test_changed_tracks_website_even_when_csv_has_no_change(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "data.js"
+            path.write_text("old", encoding="utf-8")
+            def render(*args, **kwargs):
+                path.write_text("repaired website", encoding="utf-8")
+                return SimpleNamespace(returncode=0, stdout="SKIP_NO_NEW", stderr="")
+            with patch.object(serve, "WEB", folder), \
+                 patch.object(serve.subprocess, "run", side_effect=render):
+                self.assertTrue(serve._run_update()["changed"])
+                self.assertFalse(serve._run_update()["changed"])
 
 
 def official_item(issue="26121", day="2026-10-24", result="01 02 03 04 05 06 07",

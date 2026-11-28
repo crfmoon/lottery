@@ -87,14 +87,17 @@
     const host = document.getElementById('selectionApp');
     host.innerHTML = `<style>
       .pick-grid{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 18px}
-      .pick-grid button{padding:5px;width:65px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer}
-      .pick-grid button[aria-pressed=true]{background:#e8f2ff;border-color:#457b9d}
-      .pick-grid small{display:block;font-size:10px;color:#555}
-      #selectionApp input{width:75px;padding:6px;border:1px solid #ddd;border-radius:6px}
-      #selectionApp h4{margin:16px 0 8px}.pick-ticket{padding:8px 0;border-bottom:1px solid #eee}
-      .omission-number{font-size:24px;font-weight:700;color:#457b9d}
-      .ticket-number{border:1px solid #ddd;border-radius:8px;background:white;padding:5px 8px;margin:3px;cursor:pointer}
-      .ticket-number small{display:block;color:#666;font-size:11px}
+      .pick-grid button{padding:6px 4px;width:66px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
+      .pick-grid button:hover{background:var(--surface-alt);border-color:#c4c7c5}
+      .pick-grid button[aria-pressed=true]{background:var(--brand-tint);border-color:#d2e3fc;color:var(--brand-tint-text);font-weight:600}
+      .pick-grid small{display:block;font-size:10px;color:var(--sub);font-weight:400;margin-top:2px}
+      .pick-grid button[aria-pressed=true] small{color:var(--brand-tint-text)}
+      #selectionApp input{width:76px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;color:var(--text)}
+      #selectionApp h4{margin:18px 0 8px;font-size:14px;font-weight:600;color:var(--text)}.pick-ticket{padding:10px 0;border-bottom:1px solid var(--line-subtle)}
+      .omission-number{font-size:24px;font-weight:600;color:var(--brand);margin-top:4px}
+      .ticket-number{border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);padding:6px 10px;margin:3px;cursor:pointer;font-weight:600;transition:all .15s}
+      .ticket-number:hover{border-color:var(--brand);background:var(--brand-tint)}
+      .ticket-number small{display:block;color:var(--sub);font-size:11px;font-weight:400}
     </style>
     <div class="toolbar" style="margin-top:14px">
       <label>统计范围 <select id="pickWindow"><option>30</option><option>50</option><option>100</option></select> 期</label>
@@ -115,10 +118,10 @@
       <label>最大跨度 <input id="pickSpan" type="number" placeholder="不限" min="4" max="34"></label>
       <label>最多相邻连号对 <input id="pickPairs" type="number" placeholder="不限" min="0" max="4"></label>
     </div>
-    <div class="toolbar"><button id="pickGenerate">按条件生成</button><button id="pickRandom">全号码随机对照</button><button id="pickSave">保存当前方案</button></div>
+    <div class="toolbar"><button id="pickGenerate" class="btn-primary">按条件生成</button><button id="pickRandom">全号码随机对照</button><button id="pickSave">保存当前方案</button></div>
     <p id="pickMessage" role="status"></p><div id="pickOutput"></div>
     <h4>历史回测</h4><p class="hint">固定策略：每期仅用此前所选范围的历史，取频次前 15 个前区、6 个后区，再应用当前条件。自定义候选池不参与回测。与相同注数的全号码随机对照比较；结果不代表未来收益。</p>
-    <div class="toolbar"><label>回测期数 <select id="pickPeriods"><option>30</option><option>50</option><option>100</option></select></label><button id="pickTest">运行回测</button></div><div id="pickTestOutput" role="status"></div>
+    <div class="toolbar"><label>回测期数 <select id="pickPeriods"><option>30</option><option>50</option><option>100</option></select></label><button id="pickTest" class="btn-primary">运行回测</button></div><div id="pickTestOutput" role="status"></div>
     <h4>已保存方案与开奖复盘</h4><p class="hint">方案关联保存时最新一期之后的首期开奖，跨年无需手填期号。浏览器本地记录可修改，不作为开奖前公证。最多保留 100 份。</p><div id="pickSaved"></div>`;
     const el = id => document.getElementById(id);
     let pools = { front: [...full.front], back: [...full.back] };

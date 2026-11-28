@@ -37,10 +37,11 @@ payload = json.dumps(rows, ensure_ascii=False)
 if os.path.exists(data_js):
     with open(data_js, encoding="utf-8") as f:
         existing = f.read()
-    if "window.DLT_DATA = " + payload + ";\n" in existing:
+    if "window.DLT_DATA = " + payload + ";\n" in existing and '"revision":' in existing:
         print("网站数据没有变化，保留文件及缓存版本")
         raise SystemExit(0)
 meta = {"count": len(rows), "first": rows[0]["issue"], "last": rows[-1]["issue"],
+        "revision": hashlib.sha256(payload.encode("utf-8")).hexdigest(),
         "updated": datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M")}
 out = "// 自动生成，请勿手改。来源：中国体彩官网历史开奖接口\n"
 out += "window.DLT_META = " + json.dumps(meta, ensure_ascii=False) + ";\n"
